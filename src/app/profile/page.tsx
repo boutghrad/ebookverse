@@ -21,6 +21,9 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  Bell,
+  MailCheck,
+  MailX,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,6 +83,8 @@ export default function ProfilePage() {
   const [editEmail, setEditEmail] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [updatingEmailPref, setUpdatingEmailPref] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -100,6 +105,7 @@ export default function ProfilePage() {
     if (session) {
       setEditName(session.user?.name || '');
       setEditEmail(session.user?.email || '');
+      setEmailNotifications((session.user as any)?.emailNotifications ?? true);
       fetchOrders();
     }
   }, [session, fetchOrders]);
@@ -318,7 +324,7 @@ export default function ProfilePage() {
                 transition={{ delay: 0.2 }}
               >
                 <Tabs defaultValue="orders" className="space-y-6">
-                  <TabsList className="grid w-full grid-cols-2 max-w-md">
+                  <TabsList className="grid w-full grid-cols-3 max-w-lg">
                     <TabsTrigger value="orders" className="flex items-center gap-2">
                       <ShoppingBag className="size-4" />
                       My Orders
@@ -326,6 +332,10 @@ export default function ProfilePage() {
                     <TabsTrigger value="wishlist" className="flex items-center gap-2">
                       <Heart className="size-4" />
                       Wishlist
+                    </TabsTrigger>
+                    <TabsTrigger value="notifications" className="flex items-center gap-2">
+                      <Bell className="size-4" />
+                      Notifications
                     </TabsTrigger>
                   </TabsList>
 
@@ -424,6 +434,97 @@ export default function ProfilePage() {
                         </Button>
                       </div>
                     )}
+                  </TabsContent>
+
+                  {/* Notifications Tab */}
+                  <TabsContent value="notifications" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Mail className="size-5" />
+                          Email Notifications
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between p-4 rounded-lg bg-accent/50">
+                          <div className="flex items-center gap-3">
+                            {emailNotifications ? (
+                              <div className="size-10 rounded-full bg-violet-100 dark:bg-violet-950/40 flex items-center justify-center">
+                                <MailCheck className="size-5 text-violet-600" />
+                              </div>
+                            ) : (
+                              <div className="size-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                <MailX className="size-5 text-gray-400" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium text-sm">Email Notifications</p>
+                              <p className="text-xs text-muted-foreground">
+                                Receive order confirmations, promotions, and account updates via email
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant={emailNotifications ? 'default' : 'outline'}
+                            size="sm"
+                            className={emailNotifications ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white' : ''}
+                            disabled={updatingEmailPref}
+                            onClick={async () => {
+                              setUpdatingEmailPref(true);
+                              try {
+                                const res = await fetch('/api/user/preferences', {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ emailNotifications: !emailNotifications }),
+                                });
+                                if (res.ok) {
+                                  setEmailNotifications(!emailNotifications);
+                                }
+                              } catch (err) {
+                                console.error('Failed to update preference:', err);
+                              } finally {
+                                setUpdatingEmailPref(false);
+                              }
+                            }}
+                          >
+                            {updatingEmailPref ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : emailNotifications ? (
+                              'Enabled'
+                            ) : (
+                              'Disabled'
+                            )}
+                          </Button>
+                        </div>
+
+                        <div className="space-y-3 pt-2">
+                          <h4 className="font-medium text-sm">You will receive emails for:</h4>
+                          <div className="space-y-2">
+                            {[
+                              { icon: '📦', label: 'Order confirmations', desc: 'When your order is placed and confirmed' },
+                              { icon: '📚', label: 'Free book downloads', desc: 'When you download a free eBook' },
+                              { icon: '⭐', label: 'Review confirmations', desc: 'When your review is published' },
+                              { icon: '🏷️', label: 'Promotions & discounts', desc: 'Special offers and seasonal sales' },
+                              { icon: '📢', label: 'System announcements', desc: 'Important updates from EbookVerse' },
+                            ].map((item) => (
+                              <div
+                                key={item.label}
+                                className={cn(
+                                  'flex items-center gap-3 p-3 rounded-md transition-colors',
+                                  emailNotifications ? 'bg-accent/30' : 'opacity-50'
+                                )}
+                              >
+                                <span className="text-lg">{item.icon}</span>
+                                <div>
+                                  <p className="text-sm font-medium">{item.label}</p>
+                                  <p className="text-xs text-muted-foreground">{item.desc}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </TabsContent>
 
                   {/* Wishlist Tab */}
