@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const featured = searchParams.get('featured');
     const trending = searchParams.get('trending');
+    const free = searchParams.get('free');
 
     // Build where clause
     const where: Prisma.BookWhereInput = {};
@@ -35,6 +36,13 @@ export async function GET(request: NextRequest) {
 
     if (trending === 'true') {
       where.trending = true;
+    }
+
+    if (free === 'true') {
+      where.OR = [
+        { price: 0 },
+        { discountPrice: 0 },
+      ];
     }
 
     // Build order by

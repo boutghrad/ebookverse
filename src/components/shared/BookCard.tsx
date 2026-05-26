@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { BookOpen, Heart, Star, ShoppingCart } from 'lucide-react';
+import { BookOpen, Heart, Star, ShoppingCart, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCartStore, useWishlistStore } from '@/lib/store';
@@ -66,6 +66,8 @@ export default function BookCard({ book }: { book: BookProps }) {
   const inWishlist = mounted ? isInWishlist(book.id) : false;
   const gradient = getGradient(book.id);
 
+  const isFree = book.price === 0 || book.discountPrice === 0;
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -114,7 +116,7 @@ export default function BookCard({ book }: { book: BookProps }) {
             <div
               className={cn(
                 'absolute inset-0 bg-gradient-to-br',
-                gradient,
+                isFree ? 'from-emerald-500 via-teal-500 to-cyan-500' : gradient,
                 'flex items-center justify-center transition-transform duration-500 group-hover:scale-105'
               )}
             >
@@ -142,7 +144,16 @@ export default function BookCard({ book }: { book: BookProps }) {
               </Badge>
             </div>
 
-            {/* Add to Cart Overlay */}
+            {/* FREE Badge */}
+            {isFree && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 mt-8">
+                <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0 px-3 py-1 text-sm font-bold shadow-lg animate-pulse">
+                  FREE
+                </Badge>
+              </div>
+            )}
+
+            {/* Add to Cart / Get Free Overlay */}
             <motion.div
               initial={false}
               animate={{ opacity: isHovered ? 1 : 0 }}
@@ -150,11 +161,25 @@ export default function BookCard({ book }: { book: BookProps }) {
             >
               <Button
                 onClick={handleAddToCart}
-                className="w-full bg-white/90 backdrop-blur-sm text-foreground hover:bg-white shadow-lg"
+                className={cn(
+                  'w-full backdrop-blur-sm shadow-lg',
+                  isFree
+                    ? 'bg-emerald-500/90 hover:bg-emerald-600 text-white'
+                    : 'bg-white/90 text-foreground hover:bg-white'
+                )}
                 size="sm"
               >
-                <ShoppingCart className="size-4 mr-1" />
-                Add to Cart
+                {isFree ? (
+                  <>
+                    <Download className="size-4 mr-1" />
+                    Get Free
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="size-4 mr-1" />
+                    Add to Cart
+                  </>
+                )}
               </Button>
             </motion.div>
           </div>
@@ -170,7 +195,11 @@ export default function BookCard({ book }: { book: BookProps }) {
               <span className="text-xs text-muted-foreground">({book.totalReviews})</span>
             </div>
             <div className="flex items-center gap-2 pt-1">
-              {book.discountPrice ? (
+              {isFree ? (
+                <span className="font-bold text-base text-emerald-600 dark:text-emerald-400">
+                  FREE
+                </span>
+              ) : book.discountPrice ? (
                 <>
                   <span className="font-bold text-base text-violet-600 dark:text-violet-400">
                     ${book.discountPrice.toFixed(2)}

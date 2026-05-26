@@ -10,6 +10,8 @@ import {
   Loader2,
   Check,
   BookOpen,
+  Download,
+  Gift,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +55,8 @@ function AddToCartButton({ book }: { book: BookData }) {
   const addItem = useCartStore((s) => s.addItem);
   const [added, setAdded] = useState(false);
 
+  const isFree = book.price === 0 || book.discountPrice === 0;
+
   const handleAdd = () => {
     addItem({
       bookId: book.id,
@@ -63,11 +67,44 @@ function AddToCartButton({ book }: { book: BookData }) {
       coverImage: book.coverImage,
     });
     setAdded(true);
-    toast.success('Added to cart!', {
-      description: `${book.title} has been added to your cart.`,
-    });
+    if (isFree) {
+      toast.success('Free book added!', {
+        description: `${book.title} has been added to your cart. Proceed to checkout to get it for free!`,
+      });
+    } else {
+      toast.success('Added to cart!', {
+        description: `${book.title} has been added to your cart.`,
+      });
+    }
     setTimeout(() => setAdded(false), 2000);
   };
+
+  if (isFree) {
+    return (
+      <Button
+        onClick={handleAdd}
+        size="lg"
+        className={cn(
+          'flex-1 gap-2 text-base font-semibold h-12 transition-all duration-300',
+          added
+            ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+            : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg hover:shadow-xl'
+        )}
+      >
+        {added ? (
+          <>
+            <Check className="size-5" />
+            Added!
+          </>
+        ) : (
+          <>
+            <Gift className="size-5" />
+            Get Free Book
+          </>
+        )}
+      </Button>
+    );
+  }
 
   return (
     <Button
@@ -357,7 +394,8 @@ export default function BookDetailClient({
     category: book.category,
   };
 
-  const hasDiscount = book.discountPrice && book.discountPrice < book.price;
+  const isFree = book.price === 0 || book.discountPrice === 0;
+  const hasDiscount = !isFree && book.discountPrice && book.discountPrice < book.price;
   const discountPercent = hasDiscount
     ? Math.round(((book.price - book.discountPrice!) / book.price) * 100)
     : 0;
@@ -375,14 +413,24 @@ export default function BookDetailClient({
       >
         <div className="sticky top-28">
           <div className="relative aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl">
-            <div className="absolute inset-0 bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 flex items-center justify-center">
+            <div className={cn(
+              'absolute inset-0 flex items-center justify-center',
+              isFree
+                ? 'bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500'
+                : 'bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500'
+            )}>
               <BookOpen className="size-24 text-white/50" />
             </div>
-            {hasDiscount && (
+            {isFree ? (
+              <Badge className="absolute top-4 left-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0 px-4 py-1.5 text-base font-bold shadow-lg">
+                <Gift className="size-4 mr-1" />
+                FREE
+              </Badge>
+            ) : hasDiscount ? (
               <Badge className="absolute top-4 left-4 bg-gradient-to-r from-rose-500 to-pink-600 text-white border-0 px-3 py-1 text-sm font-semibold">
                 -{discountPercent}%
               </Badge>
-            )}
+            ) : null}
           </div>
         </div>
       </motion.div>
@@ -395,9 +443,17 @@ export default function BookDetailClient({
         className="lg:col-span-3"
       >
         {/* Category Badge */}
-        <Badge variant="secondary" className="mb-3">
-          {book.category.name}
-        </Badge>
+        <div className="flex items-center gap-2 mb-3">
+          <Badge variant="secondary">
+            {book.category.name}
+          </Badge>
+          {isFree && (
+            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0">
+              <Gift className="size-3 mr-1" />
+              Free Download
+            </Badge>
+          )}
+        </div>
 
         {/* Title & Author */}
         <h1 className="text-3xl sm:text-4xl font-bold mb-2 leading-tight">
@@ -431,7 +487,17 @@ export default function BookDetailClient({
 
         {/* Price */}
         <div className="flex items-baseline gap-3 mb-6">
-          {hasDiscount ? (
+          {isFree ? (
+            <div className="flex items-center gap-2">
+              <span className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">
+                FREE
+              </span>
+              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0">
+                <Download className="size-3 mr-1" />
+                Instant Download
+              </Badge>
+            </div>
+          ) : hasDiscount ? (
             <>
               <span className="text-4xl font-bold text-violet-600 dark:text-violet-400">
                 ${book.discountPrice!.toFixed(2)}
@@ -449,6 +515,27 @@ export default function BookDetailClient({
             </span>
           )}
         </div>
+
+        {/* Free Book Notice */}
+        {isFree && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20"
+          >
+            <div className="flex items-start gap-3">
+              <Gift className="size-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+                  This book is available for free!
+                </p>
+                <p className="text-sm text-emerald-600/80 dark:text-emerald-400/80 mt-1">
+                  Add it to your cart and proceed to checkout. No payment required - just sign in and download instantly.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3 mb-8">
@@ -495,7 +582,10 @@ export default function BookDetailClient({
                 <Badge
                   key={tag}
                   variant="outline"
-                  className="text-xs hover:bg-accent transition-colors"
+                  className={cn(
+                    'text-xs hover:bg-accent transition-colors',
+                    tag.toLowerCase() === 'free' && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                  )}
                 >
                   {tag}
                 </Badge>

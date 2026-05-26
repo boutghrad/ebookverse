@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId,
         total,
-        paymentStatus: "PENDING",
+        paymentStatus: total === 0 ? "COMPLETED" : "PENDING",
         orderItems: {
           create: orderItemsData,
         },

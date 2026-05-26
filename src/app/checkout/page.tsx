@@ -13,6 +13,8 @@ import {
   BookOpen,
   ArrowLeft,
   Loader2,
+  Gift,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +24,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCartStore } from '@/lib/store';
 import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
+import { cn } from '@/lib/utils';
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
@@ -51,6 +54,10 @@ export default function CheckoutPage() {
   }, [items]);
 
   const total = getTotal();
+
+  // Check if all items are free
+  const isAllFree = total === 0;
+  const hasAnyFree = items.some((item) => item.price === 0 || item.discountPrice === 0);
 
   // Loading auth state
   if (status === 'loading') {
@@ -139,7 +146,9 @@ export default function CheckoutPage() {
                 transition={{ delay: 0.5 }}
                 className="text-muted-foreground max-w-md mb-2"
               >
-                Thank you for your purchase. Your order has been confirmed.
+                {isAllFree
+                  ? 'Your free books are ready to download. Enjoy your reading!'
+                  : 'Thank you for your purchase. Your order has been confirmed.'}
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -276,106 +285,147 @@ export default function CheckoutPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Payment Section */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Payment Method */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="rounded-xl border bg-card p-6 shadow-sm"
-              >
-                <h2 className="text-lg font-semibold mb-4">Payment Method</h2>
-                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
-                  <div className="flex items-center space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors">
-                    <RadioGroupItem value="card" id="card" />
-                    <Label htmlFor="card" className="flex items-center gap-2 cursor-pointer flex-1">
-                      <CreditCard className="size-4 text-violet-500" />
-                      <span className="font-medium">Credit / Debit Card</span>
-                    </Label>
-                    <span className="text-xs text-muted-foreground">Stripe</span>
+              {/* Free Order Notice */}
+              {isAllFree && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-6 shadow-sm"
+                >
+                  <div className="flex items-start gap-3">
+                    <Gift className="size-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h3 className="font-semibold text-emerald-700 dark:text-emerald-300 text-lg">
+                        Free Order - No Payment Required!
+                      </h3>
+                      <p className="text-sm text-emerald-600/80 dark:text-emerald-400/80 mt-1">
+                        All items in your cart are free. Just confirm your order and download your books instantly. No credit card needed.
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors opacity-50">
-                    <RadioGroupItem value="paypal" id="paypal" disabled />
-                    <Label htmlFor="paypal" className="flex items-center gap-2 cursor-pointer flex-1">
-                      <span className="font-medium">PayPal</span>
-                    </Label>
-                    <span className="text-xs text-muted-foreground">Coming Soon</span>
-                  </div>
-                </RadioGroup>
-              </motion.div>
+                </motion.div>
+              )}
 
-              {/* Credit Card Form */}
-              <AnimatePresence>
-                {paymentMethod === 'card' && (
+              {/* Payment Method - only show if not all free */}
+              {!isAllFree && (
+                <>
                   <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="rounded-xl border bg-card p-6 shadow-sm overflow-hidden"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="rounded-xl border bg-card p-6 shadow-sm"
                   >
-                    <h2 className="text-lg font-semibold mb-4">Card Details</h2>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="cardName">Name on Card</Label>
-                        <Input
-                          id="cardName"
-                          placeholder="John Doe"
-                          value={cardName}
-                          onChange={(e) => setCardName(e.target.value)}
-                        />
+                    <h2 className="text-lg font-semibold mb-4">Payment Method</h2>
+                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
+                      <div className="flex items-center space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors">
+                        <RadioGroupItem value="card" id="card" />
+                        <Label htmlFor="card" className="flex items-center gap-2 cursor-pointer flex-1">
+                          <CreditCard className="size-4 text-violet-500" />
+                          <span className="font-medium">Credit / Debit Card</span>
+                        </Label>
+                        <span className="text-xs text-muted-foreground">Stripe</span>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cardNumber">Card Number</Label>
-                        <div className="relative">
-                          <Input
-                            id="cardNumber"
-                            placeholder="4242 4242 4242 4242"
-                            value={cardNumber}
-                            onChange={(e) => {
-                              const val = e.target.value.replace(/\D/g, '').slice(0, 16);
-                              const formatted = val.replace(/(.{4})/g, '$1 ').trim();
-                              setCardNumber(formatted);
-                            }}
-                            maxLength={19}
-                            className="pr-12"
-                          />
-                          <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
-                        </div>
+                      <div className="flex items-center space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors opacity-50">
+                        <RadioGroupItem value="paypal" id="paypal" disabled />
+                        <Label htmlFor="paypal" className="flex items-center gap-2 cursor-pointer flex-1">
+                          <span className="font-medium">PayPal</span>
+                        </Label>
+                        <span className="text-xs text-muted-foreground">Coming Soon</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="expiry">Expiry Date</Label>
-                          <Input
-                            id="expiry"
-                            placeholder="MM/YY"
-                            value={cardExpiry}
-                            onChange={(e) => {
-                              let val = e.target.value.replace(/\D/g, '').slice(0, 4);
-                              if (val.length > 2) val = val.slice(0, 2) + '/' + val.slice(2);
-                              setCardExpiry(val);
-                            }}
-                            maxLength={5}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="cvc">CVC</Label>
-                          <Input
-                            id="cvc"
-                            placeholder="123"
-                            value={cardCvc}
-                            onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                            maxLength={4}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-4 text-xs text-muted-foreground">
-                      <Lock className="size-3" />
-                      <span>Your payment information is encrypted and secure</span>
-                    </div>
+                    </RadioGroup>
                   </motion.div>
-                )}
-              </AnimatePresence>
+
+                  {/* Credit Card Form */}
+                  <AnimatePresence>
+                    {paymentMethod === 'card' && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="rounded-xl border bg-card p-6 shadow-sm overflow-hidden"
+                      >
+                        <h2 className="text-lg font-semibold mb-4">Card Details</h2>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="cardName">Name on Card</Label>
+                            <Input
+                              id="cardName"
+                              placeholder="John Doe"
+                              value={cardName}
+                              onChange={(e) => setCardName(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="cardNumber">Card Number</Label>
+                            <div className="relative">
+                              <Input
+                                id="cardNumber"
+                                placeholder="4242 4242 4242 4242"
+                                value={cardNumber}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/\D/g, '').slice(0, 16);
+                                  const formatted = val.replace(/(.{4})/g, '$1 ').trim();
+                                  setCardNumber(formatted);
+                                }}
+                                maxLength={19}
+                                className="pr-12"
+                              />
+                              <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="expiry">Expiry Date</Label>
+                              <Input
+                                id="expiry"
+                                placeholder="MM/YY"
+                                value={cardExpiry}
+                                onChange={(e) => {
+                                  let val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                  if (val.length > 2) val = val.slice(0, 2) + '/' + val.slice(2);
+                                  setCardExpiry(val);
+                                }}
+                                maxLength={5}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="cvc">CVC</Label>
+                              <Input
+                                id="cvc"
+                                placeholder="123"
+                                value={cardCvc}
+                                onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                maxLength={4}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-4 text-xs text-muted-foreground">
+                          <Lock className="size-3" />
+                          <span>Your payment information is encrypted and secure</span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              )}
+
+              {/* Mixed cart notice - some free, some paid */}
+              {hasAnyFree && !isAllFree && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 p-4 shadow-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <Gift className="size-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Your cart contains free books. They will be included in your order at no charge.
+                    </p>
+                  </div>
+                </motion.div>
+              )}
             </div>
 
             {/* Order Summary Sidebar */}
@@ -392,17 +442,31 @@ export default function CheckoutPage() {
                 <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
                   {items.map((item) => {
                     const effectivePrice = item.discountPrice || item.price;
+                    const itemIsFree = item.price === 0 || item.discountPrice === 0;
                     return (
                       <div key={item.bookId} className="flex items-center gap-3">
-                        <div className="w-10 h-14 rounded bg-gradient-to-br from-violet-500 to-purple-600 flex-shrink-0 flex items-center justify-center">
-                          <BookOpen className="size-4 text-white/70" />
+                        <div className={cn(
+                          "w-10 h-14 rounded flex-shrink-0 flex items-center justify-center",
+                          itemIsFree
+                            ? "bg-gradient-to-br from-emerald-500 to-teal-500"
+                            : "bg-gradient-to-br from-violet-500 to-purple-600"
+                        )}>
+                          {itemIsFree ? (
+                            <Gift className="size-4 text-white/70" />
+                          ) : (
+                            <BookOpen className="size-4 text-white/70" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium line-clamp-1">{item.title}</p>
                           <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                         </div>
                         <span className="text-sm font-medium">
-                          ${(effectivePrice * item.quantity).toFixed(2)}
+                          {itemIsFree ? (
+                            <span className="text-emerald-600 dark:text-emerald-400">FREE</span>
+                          ) : (
+                            `$${(effectivePrice * item.quantity).toFixed(2)}`
+                          )}
                         </span>
                       </div>
                     );
@@ -434,20 +498,30 @@ export default function CheckoutPage() {
 
                 <div className="flex justify-between font-semibold text-lg">
                   <span>Total</span>
-                  <span className="text-violet-600 dark:text-violet-400">
-                    ${total.toFixed(2)}
+                  <span className={isAllFree ? 'text-emerald-600 dark:text-emerald-400' : 'text-violet-600 dark:text-violet-400'}>
+                    {isAllFree ? 'FREE' : `$${total.toFixed(2)}`}
                   </span>
                 </div>
 
                 <Button
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg h-12 text-base"
+                  className={cn(
+                    'w-full shadow-lg h-12 text-base',
+                    isAllFree
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
+                      : 'bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white'
+                  )}
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="size-4 mr-2 animate-spin" />
                       Processing...
+                    </>
+                  ) : isAllFree ? (
+                    <>
+                      <Download className="size-4 mr-2" />
+                      Confirm Free Order
                     </>
                   ) : (
                     <>
@@ -458,7 +532,10 @@ export default function CheckoutPage() {
                 </Button>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  By placing your order, you agree to our Terms of Service
+                  {isAllFree
+                    ? 'Confirm to download your free books instantly'
+                    : 'By placing your order, you agree to our Terms of Service'
+                  }
                 </p>
               </motion.div>
             </div>

@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Gift,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -101,6 +102,7 @@ function BooksContent() {
   const currentSearch = searchParams.get('search') || '';
   const currentFeatured = searchParams.get('featured') || '';
   const currentTrending = searchParams.get('trending') || '';
+  const currentFree = searchParams.get('free') || '';
 
   // Fetch categories
   useEffect(() => {
@@ -129,6 +131,7 @@ function BooksContent() {
       if (currentPage) params.set('page', String(currentPage));
       if (currentFeatured) params.set('featured', currentFeatured);
       if (currentTrending) params.set('trending', currentTrending);
+      if (currentFree) params.set('free', currentFree);
       params.set('limit', '12');
 
       const res = await fetch(`/api/books?${params.toString()}`);
@@ -142,7 +145,7 @@ function BooksContent() {
     } finally {
       setLoading(false);
     }
-  }, [currentCategory, currentSearch, currentSort, currentPage, currentFeatured, currentTrending]);
+  }, [currentCategory, currentSearch, currentSort, currentPage, currentFeatured, currentTrending, currentFree]);
 
   useEffect(() => {
     fetchBooks();
@@ -200,13 +203,19 @@ function BooksContent() {
     });
   };
 
+  const toggleFree = () => {
+    updateParams({
+      free: currentFree === 'true' ? '' : 'true',
+    });
+  };
+
   const clearFilters = () => {
     setSearchInput('');
     router.push('/books');
   };
 
   const hasActiveFilters =
-    currentCategory || currentSearch || currentFeatured || currentTrending;
+    currentCategory || currentSearch || currentFeatured || currentTrending || currentFree;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -353,6 +362,21 @@ function BooksContent() {
                 <TrendingUp className="size-3.5" />
                 Trending
               </Button>
+
+              {/* Free Toggle */}
+              <Button
+                variant={currentFree === 'true' ? 'default' : 'outline'}
+                size="sm"
+                onClick={toggleFree}
+                className={cn(
+                  'gap-1.5',
+                  currentFree === 'true' &&
+                    'bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0'
+                )}
+              >
+                <Gift className="size-3.5" />
+                Free
+              </Button>
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -447,6 +471,17 @@ function BooksContent() {
                   >
                     Trending
                     <button onClick={toggleTrending}>
+                      <X className="size-3" />
+                    </button>
+                  </Badge>
+                )}
+                {currentFree === 'true' && (
+                  <Badge
+                    variant="secondary"
+                    className="gap-1 px-3 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                  >
+                    Free
+                    <button onClick={toggleFree}>
                       <X className="size-3" />
                     </button>
                   </Badge>

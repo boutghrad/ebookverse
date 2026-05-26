@@ -49,6 +49,12 @@ const books = [
   // Psychology
   { title: 'Thinking, Fast and Slow', slug: 'thinking-fast-and-slow', description: 'A groundbreaking tour of the mind that explains the two systems that drive the way we think—System 1 fast, intuitive, and System 2 slow, deliberate.', author: 'Daniel Kahneman', price: 14.99, discountPrice: 9.99, rating: 4.7, totalReviews: 478, totalSales: 1890, featured: true, trending: true, pages: 499, categoryId: '', tags: 'psychology,thinking,decision-making,cognitive-bias' },
   { title: 'Influence', slug: 'influence', description: 'The Psychology of Persuasion. Understand the six universal principles of influence and how to use them to become a skilled persuader—and defend yourself against them.', author: 'Robert Cialdini', price: 13.99, rating: 4.5, totalReviews: 234, totalSales: 980, featured: false, trending: false, pages: 320, categoryId: '', tags: 'psychology,persuasion,influence,behavior' },
+
+  // 🎁 FREE Books
+  { title: 'The Art of Learning', slug: 'the-art-of-learning', description: 'A journey in the pursuit of excellence. World chess champion and martial arts champion Josh Waitzkin shares his unique approach to mastering any skill, combining deep focus, resilience, and the ability to perform under pressure.', author: 'Josh Waitzkin', price: 0, discountPrice: 0, rating: 4.6, totalReviews: 312, totalSales: 5420, featured: true, trending: true, pages: 288, categoryId: '', tags: 'learning,mastery,performance,self-improvement,free' },
+  { title: 'Creative Confidence', slug: 'creative-confidence', description: 'Unleashing the Creative Potential Within Us All. Tom and David Kelley reveal how anyone can tap into their creative potential through practical strategies, real-world examples, and proven methods for unlocking innovation.', author: 'Tom Kelley', price: 0, discountPrice: 0, rating: 4.4, totalReviews: 189, totalSales: 3280, featured: true, trending: false, pages: 288, categoryId: '', tags: 'creativity,innovation,design-thinking,free' },
+  { title: 'Mindfulness for Beginners', slug: 'mindfulness-for-beginners', description: 'A practical guide to mindfulness meditation and living in the present moment. This book offers simple techniques to reduce stress, improve focus, and find inner peace in your daily life.', author: 'Jon Kabat-Zinn', price: 0, discountPrice: 0, rating: 4.5, totalReviews: 267, totalSales: 4100, featured: false, trending: true, pages: 192, categoryId: '', tags: 'mindfulness,meditation,stress-relief,wellness,free' },
+  { title: 'The Startup Playbook', slug: 'the-startup-playbook', description: 'The essential guide to launching and growing your startup from idea to scale. Packed with advice from over 50 successful founders, covering everything from finding product-market fit to raising capital and building a world-class team.', author: 'David Kidder', price: 0, discountPrice: 0, rating: 4.3, totalReviews: 156, totalSales: 2890, featured: false, trending: false, pages: 256, categoryId: '', tags: 'startup,entrepreneurship,growth,free' },
 ];
 
 const testimonials = [
@@ -115,7 +121,10 @@ async function main() {
         (book.slug.includes('rich') || book.slug.includes('intelligent')) && c.slug === 'finance' ||
         (book.slug.includes('clean') || book.slug.includes('pragmatic')) && c.slug === 'programming' ||
         (book.slug.includes('think-design') || book.slug.includes('dont')) && c.slug === 'design' ||
-        (book.slug.includes('thinking-fast') || book.slug.includes('influence')) && c.slug === 'psychology';
+        (book.slug.includes('thinking-fast') || book.slug.includes('influence')) && c.slug === 'psychology' ||
+        (book.slug.includes('art-of-learning') || book.slug.includes('mindfulness')) && c.slug === 'self-development' ||
+        (book.slug.includes('creative-confidence')) && c.slug === 'design' ||
+        (book.slug.includes('startup-playbook')) && c.slug === 'business';
     });
     
     const category = catIndex >= 0 ? categoryRecords[catIndex] : categoryRecords[0];
