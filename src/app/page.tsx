@@ -2,6 +2,7 @@ import Navbar from '@/components/landing/Navbar';
 import Hero from '@/components/landing/Hero';
 import Features from '@/components/landing/Features';
 import Categories from '@/components/landing/Categories';
+import FreeBooks from '@/components/landing/FreeBooks';
 import BestSellers from '@/components/landing/BestSellers';
 import Testimonials from '@/components/landing/Testimonials';
 import FAQ from '@/components/landing/FAQ';
@@ -16,6 +17,7 @@ export default function Home() {
         <Hero />
         <Features />
         <Categories />
+        <FreeBooks />
         <BestSellers />
         <Testimonials />
         <FAQ />
