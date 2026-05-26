@@ -136,6 +136,7 @@ async function main() {
         ...book,
         categoryId: category.id,
         coverImage: `/covers/${book.slug}.jpg`,
+        pdfUrl: `/pdfs/${book.slug}.pdf`,
       },
     });
     bookRecords.push(record);

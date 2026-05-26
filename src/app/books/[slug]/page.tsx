@@ -184,6 +184,7 @@ export default async function BookDetailPage({ params }: BookPageProps) {
               language: book.language,
               format: book.format,
               tags: book.tags,
+              pdfUrl: book.pdfUrl,
               category: {
                 id: book.category.id,
                 name: book.category.name,

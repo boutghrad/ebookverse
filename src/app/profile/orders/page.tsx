@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Truck,
   CreditCard,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface OrderItem {
   id: string;
@@ -346,6 +348,40 @@ export default function OrdersPage() {
                                           Qty: {item.quantity}
                                         </span>
                                       </div>
+                                      {/* Download Button for completed orders */}
+                                      {order.paymentStatus === 'COMPLETED' && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="mt-2 h-7 text-xs gap-1.5 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            try {
+                                              const res = await fetch(`/api/download/${item.book.id}`);
+                                              if (!res.ok) {
+                                                const data = await res.json();
+                                                toast.error(data.error || 'Download failed');
+                                                return;
+                                              }
+                                              const blob = await res.blob();
+                                              const url = window.URL.createObjectURL(blob);
+                                              const a = document.createElement('a');
+                                              a.href = url;
+                                              a.download = `${item.book.title.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+                                              document.body.appendChild(a);
+                                              a.click();
+                                              window.URL.revokeObjectURL(url);
+                                              document.body.removeChild(a);
+                                              toast.success('Download started!');
+                                            } catch {
+                                              toast.error('Download failed');
+                                            }
+                                          }}
+                                        >
+                                          <Download className="size-3" />
+                                          Download PDF
+                                        </Button>
+                                      )}
                                     </div>
                                     <span className="font-semibold text-sm text-violet-600 dark:text-violet-400 flex-shrink-0">
                                       ${(item.price * item.quantity).toFixed(2)}

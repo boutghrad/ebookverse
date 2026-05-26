@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
       slug: book.slug,
       author: book.author,
       coverImage: book.coverImage,
+      pdfUrl: book.pdfUrl,
       price: book.price,
       discountPrice: book.discountPrice,
       rating: book.rating,

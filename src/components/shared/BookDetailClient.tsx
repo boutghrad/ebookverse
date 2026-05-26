@@ -50,6 +50,82 @@ interface BookData {
   };
 }
 
+// Download PDF Button
+function DownloadButton({ bookId, title, isFree }: { bookId: string; title: string; isFree: boolean }) {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/download/${bookId}`);
+      if (!res.ok) {
+        const data = await res.json();
+        if (res.status === 401) {
+          toast.error('Please sign in', {
+            description: 'You need to be signed in to download books.',
+          });
+          setTimeout(() => {
+            window.location.href = '/auth/signin';
+          }, 1500);
+        } else if (res.status === 403) {
+          toast.error('Purchase required', {
+            description: 'You need to purchase this book before downloading it.',
+          });
+        } else {
+          toast.error(data.error || 'Download failed');
+        }
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success('Download started!', {
+        description: `${title} is being downloaded.`,
+      });
+    } catch {
+      toast.error('Download failed', {
+        description: 'Something went wrong. Please try again.',
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <Button
+      onClick={handleDownload}
+      disabled={downloading}
+      size="lg"
+      className={cn(
+        'flex-1 gap-2 text-base font-semibold h-12 transition-all duration-300',
+        isFree
+          ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg hover:shadow-xl'
+          : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl'
+      )}
+    >
+      {downloading ? (
+        <>
+          <Loader2 className="size-5 animate-spin" />
+          Downloading...
+        </>
+      ) : (
+        <>
+          <Download className="size-5" />
+          {isFree ? 'Download Free PDF' : 'Download PDF'}
+        </>
+      )}
+    </Button>
+  );
+}
+
 // Add to Cart Button
 function AddToCartButton({ book }: { book: BookData }) {
   const addItem = useCartStore((s) => s.addItem);
@@ -372,6 +448,7 @@ export default function BookDetailClient({
     language: string;
     format: string;
     tags: string | null;
+    pdfUrl: string | null;
     category: {
       id: string;
       name: string;
@@ -395,6 +472,7 @@ export default function BookDetailClient({
   };
 
   const isFree = book.price === 0 || book.discountPrice === 0;
+  const hasPdf = !!book.pdfUrl;
   const hasDiscount = !isFree && book.discountPrice && book.discountPrice < book.price;
   const discountPercent = hasDiscount
     ? Math.round(((book.price - book.discountPrice!) / book.price) * 100)
@@ -538,9 +616,15 @@ export default function BookDetailClient({
         )}
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3 mb-8">
-          <AddToCartButton book={bookData} />
-          <AddToWishlistButton book={bookData} />
+        <div className="flex flex-col gap-3 mb-8">
+          <div className="flex items-center gap-3">
+            <AddToCartButton book={bookData} />
+            <AddToWishlistButton book={bookData} />
+          </div>
+          {/* Direct Download Button */}
+          {hasPdf && (
+            <DownloadButton bookId={book.id} title={book.title} isFree={isFree} />
+          )}
         </div>
 
         {/* Description */}

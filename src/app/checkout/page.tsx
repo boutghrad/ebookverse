@@ -25,6 +25,7 @@ import { useCartStore } from '@/lib/store';
 import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
@@ -161,6 +162,57 @@ export default function CheckoutPage() {
                   {orderNumber}
                 </span>
               </motion.div>
+              {/* Download Books Section */}
+              {isAllFree && items.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.65 }}
+                  className="mb-8 w-full max-w-lg"
+                >
+                  <div className="rounded-xl border bg-emerald-50/50 dark:bg-emerald-950/20 p-5">
+                    <h3 className="font-semibold text-emerald-700 dark:text-emerald-300 mb-3 flex items-center gap-2">
+                      <Download className="size-5" />
+                      Download Your Free Books
+                    </h3>
+                    <div className="space-y-2">
+                      {items.map((item) => (
+                        <Button
+                          key={item.bookId}
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-start gap-2 text-sm border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-950/30"
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/download/${item.bookId}`);
+                              if (!res.ok) {
+                                toast.error('Download failed. Please try again from your orders page.');
+                                return;
+                              }
+                              const blob = await res.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `${item.title.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              window.URL.revokeObjectURL(url);
+                              document.body.removeChild(a);
+                              toast.success(`Downloading ${item.title}...`);
+                            } catch {
+                              toast.error('Download failed');
+                            }
+                          }}
+                        >
+                          <Download className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                          {item.title}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
