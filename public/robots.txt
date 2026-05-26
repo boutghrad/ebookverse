@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /profile/
+Disallow: /cart/
+Disallow: /checkout/
+
+Sitemap: https://ebookverse.com/sitemap.xml
