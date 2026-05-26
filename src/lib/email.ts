@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { db } from '@/lib/db';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -9,15 +10,32 @@ interface SendEmailParams {
   to: string;
   subject: string;
   html: string;
+  userId?: string;
+  emailType?: string;
 }
 
 /**
- * Send an email using Resend
+ * Send an email using Resend and log it to the Neon database
  */
-export async function sendEmail({ to, subject, html }: SendEmailParams) {
+export async function sendEmail({ to, subject, html, userId, emailType = 'notification' }: SendEmailParams) {
+  // Create a pending log entry in the database
+  const emailLog = await db.emailLog.create({
+    data: {
+      userId: userId || null,
+      to,
+      subject,
+      type: emailType,
+      status: 'pending',
+    },
+  });
+
   try {
     if (!process.env.RESEND_API_KEY) {
       console.warn('RESEND_API_KEY not set, skipping email send');
+      await db.emailLog.update({
+        where: { id: emailLog.id },
+        data: { status: 'skipped', error: 'RESEND_API_KEY not configured' },
+      });
       return { success: false, error: 'RESEND_API_KEY not configured' };
     }
 
@@ -30,12 +48,29 @@ export async function sendEmail({ to, subject, html }: SendEmailParams) {
 
     if (error) {
       console.error('Email send error:', error);
+      await db.emailLog.update({
+        where: { id: emailLog.id },
+        data: { status: 'failed', error: error.message },
+      });
       return { success: false, error: error.message };
     }
+
+    // Update log with success
+    await db.emailLog.update({
+      where: { id: emailLog.id },
+      data: {
+        status: 'sent',
+        resendId: data?.id || null,
+      },
+    });
 
     return { success: true, id: data?.id };
   } catch (error) {
     console.error('Email send exception:', error);
+    await db.emailLog.update({
+      where: { id: emailLog.id },
+      data: { status: 'failed', error: 'Failed to send email' },
+    }).catch(() => {}); // Don't fail if log update fails
     return { success: false, error: 'Failed to send email' };
   }
 }
@@ -100,18 +135,18 @@ function baseTemplate(content: string, title: string) {
 /**
  * Send welcome email
  */
-export async function sendWelcomeEmail(to: string, name: string) {
+export async function sendWelcomeEmail(to: string, name: string, userId?: string) {
   const html = baseTemplate(`
-    <h2>Welcome to EbookVerse, ${name}! 🎉</h2>
+    <h2>Welcome to EbookVerse, ${name}!</h2>
     <p>We're thrilled to have you join our community of book lovers. Your digital library awaits!</p>
     
     <div class="highlight-box">
       <p><strong>Here's what you can do:</strong></p>
       <ul>
-        <li>📚 Browse our collection of 20+ premium eBooks</li>
-        <li>🎁 Download free books instantly</li>
-        <li>⭐ Leave reviews and share your thoughts</li>
-        <li>❤️ Build your wishlist of must-reads</li>
+        <li>Browse our collection of premium eBooks</li>
+        <li>Download free books instantly</li>
+        <li>Leave reviews and share your thoughts</li>
+        <li>Build your wishlist of must-reads</li>
       </ul>
     </div>
     
@@ -122,7 +157,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
     </div>
   `, 'Welcome to EbookVerse!');
 
-  return sendEmail({ to, subject: 'Welcome to EbookVerse! 🎉', html });
+  return sendEmail({ to, subject: 'Welcome to EbookVerse!', html, userId, emailType: 'welcome' });
 }
 
 /**
@@ -133,7 +168,8 @@ export async function sendOrderConfirmationEmail(
   name: string,
   orderId: string,
   total: number,
-  books: { title: string; price: number; isFree: boolean }[]
+  books: { title: string; price: number; isFree: boolean }[],
+  userId?: string
 ) {
   const booksHtml = books.map(b => `
     <div class="book-item">
@@ -145,7 +181,7 @@ export async function sendOrderConfirmationEmail(
   `).join('');
 
   const html = baseTemplate(`
-    <h2>Order Confirmed! ✅</h2>
+    <h2>Order Confirmed!</h2>
     <p>Hi ${name}, your order has been confirmed successfully.</p>
     
     <div class="highlight-box">
@@ -165,7 +201,7 @@ export async function sendOrderConfirmationEmail(
     </div>
   `, 'Order Confirmed - EbookVerse');
 
-  return sendEmail({ to, subject: 'Order Confirmed! ✅ - EbookVerse', html });
+  return sendEmail({ to, subject: 'Order Confirmed! - EbookVerse', html, userId, emailType: 'order' });
 }
 
 /**
@@ -175,10 +211,11 @@ export async function sendFreeBookEmail(
   to: string,
   name: string,
   bookTitle: string,
-  bookSlug: string
+  bookSlug: string,
+  userId?: string
 ) {
   const html = baseTemplate(`
-    <h2>Your Free Book is Ready! 📚</h2>
+    <h2>Your Free Book is Ready!</h2>
     <p>Hi ${name}, your free book is now available for download.</p>
     
     <div class="highlight-box">
@@ -193,7 +230,7 @@ export async function sendFreeBookEmail(
     </div>
   `, 'Free Book Download - EbookVerse');
 
-  return sendEmail({ to, subject: `Your Free Book: ${bookTitle} 📚`, html });
+  return sendEmail({ to, subject: `Your Free Book: ${bookTitle}`, html, userId, emailType: 'free_book' });
 }
 
 /**
@@ -204,9 +241,10 @@ export async function sendReviewEmail(
   name: string,
   bookTitle: string,
   bookSlug: string,
-  rating: number
+  rating: number,
+  userId?: string
 ) {
-  const stars = '⭐'.repeat(rating);
+  const stars = '\u2B50'.repeat(rating);
   const html = baseTemplate(`
     <h2>Review Published! ${stars}</h2>
     <p>Hi ${name}, your review for <strong>"${bookTitle}"</strong> has been published.</p>
@@ -223,7 +261,7 @@ export async function sendReviewEmail(
     </div>
   `, 'Review Published - EbookVerse');
 
-  return sendEmail({ to, subject: `Review Published! ${stars} - EbookVerse`, html });
+  return sendEmail({ to, subject: `Review Published! - EbookVerse`, html, userId, emailType: 'review' });
 }
 
 /**
@@ -234,7 +272,8 @@ export async function sendPromoEmail(
   name: string,
   title: string,
   message: string,
-  link?: string
+  link?: string,
+  userId?: string
 ) {
   const html = baseTemplate(`
     <h2>${title}</h2>
@@ -244,7 +283,7 @@ export async function sendPromoEmail(
     ${link ? `<div style="text-align: center;"><a href="${APP_URL}${link}" class="btn">Shop Now</a></div>` : ''}
   `, title);
 
-  return sendEmail({ to, subject: `${title} - EbookVerse`, html });
+  return sendEmail({ to, subject: `${title} - EbookVerse`, html, userId, emailType: 'promo' });
 }
 
 /**
@@ -255,7 +294,8 @@ export async function sendNotificationEmail(
   name: string,
   notificationTitle: string,
   notificationMessage: string,
-  notificationLink?: string
+  notificationLink?: string,
+  userId?: string
 ) {
   const html = baseTemplate(`
     <h2>${notificationTitle}</h2>
@@ -265,5 +305,5 @@ export async function sendNotificationEmail(
     ${notificationLink ? `<div style="text-align: center;"><a href="${APP_URL}${notificationLink}" class="btn">View Details</a></div>` : ''}
   `, notificationTitle);
 
-  return sendEmail({ to, subject: `${notificationTitle} - EbookVerse`, html });
+  return sendEmail({ to, subject: `${notificationTitle} - EbookVerse`, html, userId, emailType: 'notification' });
 }

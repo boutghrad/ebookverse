@@ -61,7 +61,7 @@ export async function createNotification({
     const { enabled, email, name } = await shouldSendEmail(userId);
     if (email && (enabled || forceEmail)) {
       // Don't await email to avoid blocking the response
-      sendNotificationEmail(email, name, title, message, link || undefined).catch((err) =>
+      sendNotificationEmail(email, name, title, message, link || undefined, userId).catch((err) =>
         console.error('Background email send failed:', err)
       );
     }
@@ -84,14 +84,14 @@ export async function sendWelcomeNotification(userId: string, userName?: string)
   });
 
   if (user?.email) {
-    sendWelcomeEmail(user.email, user.name || 'Reader').catch((err) =>
+    sendWelcomeEmail(user.email, user.name || 'Reader', userId).catch((err) =>
       console.error('Welcome email failed:', err)
     );
   }
 
   return createNotification({
     userId,
-    title: 'Welcome to EbookVerse! 🎉',
+    title: 'Welcome to EbookVerse!',
     message: `Hi ${userName || 'there'}! Welcome to EbookVerse. Start exploring our collection of amazing eBooks. Don't forget to check out our free books section!`,
     type: 'success',
     link: '/books',
@@ -132,13 +132,14 @@ export async function sendOrderConfirmationNotification(
       order.user.name || 'Reader',
       orderId,
       total,
-      books
+      books,
+      userId
     ).catch((err) => console.error('Order email failed:', err));
   }
 
   return createNotification({
     userId,
-    title: 'Order Confirmed! ✅',
+    title: 'Order Confirmed!',
     message: `Your order of ${bookCount} book${bookCount > 1 ? 's' : ''} ($${total.toFixed(2)}) has been confirmed. You can now download your eBooks from your orders page.`,
     type: 'order',
     link: '/profile?tab=orders',
@@ -155,14 +156,14 @@ export async function sendFreeBookNotification(
 ) {
   const { enabled, email, name } = await shouldSendEmail(userId);
   if (enabled && email) {
-    sendFreeBookEmail(email, name, bookTitle, bookSlug).catch((err) =>
+    sendFreeBookEmail(email, name, bookTitle, bookSlug, userId).catch((err) =>
       console.error('Free book email failed:', err)
     );
   }
 
   return createNotification({
     userId,
-    title: 'Free Book Downloaded! 📚',
+    title: 'Free Book Downloaded!',
     message: `"${bookTitle}" has been added to your library. Enjoy reading!`,
     type: 'success',
     link: `/books/${bookSlug}`,
@@ -180,7 +181,7 @@ export async function sendPromoNotification(
 ) {
   const { enabled, email, name } = await shouldSendEmail(userId);
   if (enabled && email) {
-    sendPromoEmail(email, name, title, message, link).catch((err) =>
+    sendPromoEmail(email, name, title, message, link, userId).catch((err) =>
       console.error('Promo email failed:', err)
     );
   }
@@ -205,14 +206,14 @@ export async function sendReviewNotification(
 ) {
   const { enabled, email, name } = await shouldSendEmail(userId);
   if (enabled && email) {
-    sendReviewEmail(email, name, bookTitle, bookSlug, rating || 5).catch((err) =>
+    sendReviewEmail(email, name, bookTitle, bookSlug, rating || 5, userId).catch((err) =>
       console.error('Review email failed:', err)
     );
   }
 
   return createNotification({
     userId,
-    title: 'Review Published! ⭐',
+    title: 'Review Published!',
     message: `Your review for "${bookTitle}" has been published. Thanks for sharing your thoughts!`,
     type: 'success',
     link: `/books/${bookSlug}`,

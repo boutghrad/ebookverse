@@ -24,6 +24,7 @@ model User {
   wishlist     Wishlist[]
   cartItems    CartItem[]
   notifications Notification[]
+  emailLogs    EmailLog[]
 
   accounts Account[]
   sessions Session[]
@@ -188,4 +189,22 @@ model Notification {
 
   @@index([userId, read])
   @@index([userId, createdAt])
+}
+
+model EmailLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  to         String
+  subject    String
+  type       String   @default("notification")
+  status     String   @default("pending")
+  resendId   String?
+  error      String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
 }
