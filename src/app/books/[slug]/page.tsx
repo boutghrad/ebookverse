@@ -10,6 +10,9 @@ import BookDetailClient from '@/components/shared/BookDetailClient';
 import BookCard, { BookProps } from '@/components/shared/BookCard';
 import { ChevronRight, Home } from 'lucide-react';
 
+// Force dynamic rendering - don't query DB at build time
+export const dynamic = 'force-dynamic';
+
 interface BookPageProps {
   params: Promise<{ slug: string }>;
 }

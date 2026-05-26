@@ -1,6 +1,9 @@
 import { MetadataRoute } from 'next';
 import { db } from '@/lib/db';
 
+// Force dynamic rendering - don't query DB at build time
+export const dynamic = 'force-dynamic';
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://ebookverse.com';
 
