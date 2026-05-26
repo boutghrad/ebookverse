@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
+import { sendWelcomeNotification } from "@/lib/notifications";
 
 // POST /api/auth/register - Register a new user
 export async function POST(request: NextRequest) {
@@ -64,6 +65,9 @@ export async function POST(request: NextRequest) {
         createdAt: true,
       },
     });
+
+    // Send welcome notification
+    await sendWelcomeNotification(user.id, user.name || undefined);
 
     return NextResponse.json(
       { message: "User registered successfully", user },

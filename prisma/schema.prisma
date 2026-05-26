@@ -18,10 +18,11 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  orders     Order[]
-  reviews    Review[]
-  wishlist   Wishlist[]
-  cartItems  CartItem[]
+  orders       Order[]
+  reviews      Review[]
+  wishlist     Wishlist[]
+  cartItems    CartItem[]
+  notifications Notification[]
 
   accounts Account[]
   sessions Session[]
@@ -170,4 +171,20 @@ model Newsletter {
   id        String   @id @default(cuid())
   email     String   @unique
   createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info")
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
 }

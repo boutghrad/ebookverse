@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { sendOrderConfirmationNotification, sendFreeBookNotification } from "@/lib/notifications";
 
 // GET /api/orders - Get user's orders
 export async function GET() {
@@ -130,6 +131,22 @@ export async function POST(request: NextRequest) {
 
     // Clear the user's cart after successful order
     await db.cartItem.deleteMany({ where: { userId } });
+
+    // Send order confirmation notification
+    await sendOrderConfirmationNotification(
+      userId,
+      order.id,
+      total,
+      orderItemsData.length
+    );
+
+    // Send free book download notification for free books
+    for (const item of orderItemsData) {
+      const book = bookMap.get(item.bookId);
+      if (book && book.price === 0 && (book.discountPrice ?? 0) === 0) {
+        await sendFreeBookNotification(userId, book.title, book.slug);
+      }
+    }
 
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {

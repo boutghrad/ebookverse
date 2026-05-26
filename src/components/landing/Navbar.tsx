@@ -4,9 +4,10 @@ import { useState, useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { motion } from 'framer-motion';
-import { BookOpen, Search, ShoppingCart, Menu, User, LogOut, Settings, Heart } from 'lucide-react';
+import { BookOpen, Search, ShoppingCart, Menu, User, LogOut, Settings, Heart, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import NotificationBell from '@/components/shared/NotificationBell';
 import {
   Sheet,
   SheetContent,
@@ -108,6 +109,8 @@ export default function Navbar() {
 
           <ThemeToggle />
 
+          {isLoggedIn && <NotificationBell />}
+
           <Button variant="ghost" size="icon" className="relative" asChild aria-label="Cart">
             <Link href="/cart">
               <ShoppingCart className="size-5" />
@@ -148,6 +151,12 @@ export default function Navbar() {
                     Wishlist
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/notifications" className="cursor-pointer">
+                    <Bell className="size-4 mr-2" />
+                    Notifications
+                  </Link>
+                </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem asChild>
                     <Link href="/admin" className="cursor-pointer">
@@ -182,6 +191,7 @@ export default function Navbar() {
         {/* Mobile Menu */}
         <div className="flex md:hidden items-center gap-1">
           <ThemeToggle />
+          {isLoggedIn && <NotificationBell />}
           <Button variant="ghost" size="icon" className="relative" asChild>
             <Link href="/cart">
               <ShoppingCart className="size-5" />
@@ -251,6 +261,12 @@ export default function Navbar() {
                     <Link href="/profile?tab=wishlist" onClick={() => setMobileOpen(false)}>
                       <Heart className="size-4 mr-2" />
                       Wishlist
+                    </Link>
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start" asChild>
+                    <Link href="/notifications" onClick={() => setMobileOpen(false)}>
+                      <Bell className="size-4 mr-2" />
+                      Notifications
                     </Link>
                   </Button>
                   {isAdmin && (

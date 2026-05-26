@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { sendReviewNotification } from "@/lib/notifications";
 
 // POST /api/reviews - Create a review (auth required)
 export async function POST(request: NextRequest) {
@@ -84,6 +85,9 @@ export async function POST(request: NextRequest) {
         totalReviews,
       },
     });
+
+    // Send review notification
+    await sendReviewNotification(userId, book.title, book.slug);
 
     return NextResponse.json({ review }, { status: 201 });
   } catch (error) {
