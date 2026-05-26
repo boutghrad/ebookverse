@@ -1,26 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { motion } from 'framer-motion';
-import { BookOpen, Mail, Lock, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { BookOpen, Mail, Lock, Loader2, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export default function SignInPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    const message = searchParams.get('message');
+    if (message) {
+      setSuccessMessage(message);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
     setLoading(true);
 
     try {
@@ -33,8 +43,8 @@ export default function SignInPage() {
       if (result?.error) {
         setError('Invalid email or password. Please try again.');
       } else if (result?.ok) {
-        router.push('/');
-        router.refresh();
+        // Use window.location for a full page reload to ensure session is picked up
+        window.location.href = '/';
       }
     } catch {
       setError('An unexpected error occurred. Please try again.');
@@ -96,6 +106,18 @@ export default function SignInPage() {
               Sign in to continue your reading journey
             </p>
           </div>
+
+          {/* Success Message */}
+          {successMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 p-3 mb-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-sm"
+            >
+              <CheckCircle className="size-4 flex-shrink-0" />
+              {successMessage}
+            </motion.div>
+          )}
 
           {/* Error Message */}
           {error && (

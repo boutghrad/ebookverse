@@ -67,6 +67,12 @@ export default function SignUpPage() {
       return;
     }
 
+    // Validate email
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -81,6 +87,7 @@ export default function SignUpPage() {
 
       if (!registerRes.ok) {
         setError(registerData.error || 'Registration failed. Please try again.');
+        setLoading(false);
         return;
       }
 
@@ -92,13 +99,16 @@ export default function SignUpPage() {
       });
 
       if (signInResult?.ok) {
-        router.push('/');
-        router.refresh();
+        // Use window.location for a full page reload to ensure session is picked up
+        window.location.href = '/';
+      } else if (signInResult?.error) {
+        // Registration succeeded but auto-signin failed, redirect to signin page with message
+        router.push('/auth/signin?message=Registration+successful.+Please+sign+in+with+your+credentials.');
       } else {
-        // Registration succeeded but auto-signin failed, redirect to signin
         router.push('/auth/signin');
       }
-    } catch {
+    } catch (err) {
+      console.error('Registration error:', err);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
