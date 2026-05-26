@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { BookOpen, Search, ShoppingCart, Menu, User, LogOut, Settings } from 'lucide-react';
@@ -32,11 +32,16 @@ const navLinks = [
   { href: '#about', label: 'About' },
 ];
 
+const emptySubscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [isLoggedIn] = useState(false);
   const itemCount = useCartStore((s) => s.getItemCount());
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -92,7 +97,7 @@ export default function Navbar() {
 
           <Button variant="ghost" size="icon" className="relative" aria-label="Cart">
             <ShoppingCart className="size-5" />
-            {itemCount > 0 && (
+            {mounted && itemCount > 0 && (
               <Badge className="absolute -top-1 -right-1 size-5 p-0 flex items-center justify-center bg-gradient-to-r from-violet-500 to-purple-600 text-white border-0 text-[10px]">
                 {itemCount}
               </Badge>
@@ -147,7 +152,7 @@ export default function Navbar() {
           <ThemeToggle />
           <Button variant="ghost" size="icon" className="relative">
             <ShoppingCart className="size-5" />
-            {itemCount > 0 && (
+            {mounted && itemCount > 0 && (
               <Badge className="absolute -top-1 -right-1 size-5 p-0 flex items-center justify-center bg-gradient-to-r from-violet-500 to-purple-600 text-white border-0 text-[10px]">
                 {itemCount}
               </Badge>

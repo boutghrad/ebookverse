@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { BookOpen, Heart, Star, ShoppingCart } from 'lucide-react';
@@ -54,11 +54,16 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
+const emptySubscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 export default function BookCard({ book }: { book: BookProps }) {
   const [isHovered, setIsHovered] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
   const { addItem: addToWishlist, removeItem: removeFromWishlist, isInWishlist } = useWishlistStore();
-  const inWishlist = isInWishlist(book.id);
+  const mounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
+  const inWishlist = mounted ? isInWishlist(book.id) : false;
   const gradient = getGradient(book.id);
 
   const handleAddToCart = (e: React.MouseEvent) => {
