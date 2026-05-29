@@ -8,6 +8,13 @@ import { PayPalScriptProvider } from '@paypal/react-paypal-js';
 export default function Providers({ children }: { children: React.ReactNode }) {
   const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
 
+  // Only render PayPal provider if we have a valid client ID
+  const paypalOptions = {
+    clientId: paypalClientId || 'sb',
+    currency: 'USD',
+    intent: 'capture' as const,
+  };
+
   return (
     <SessionProvider>
       <ThemeProvider
@@ -16,13 +23,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
-        <PayPalScriptProvider
-          options={{
-            clientId: paypalClientId || 'sb',
-            currency: 'USD',
-            intent: 'capture',
-          }}
-        >
+        <PayPalScriptProvider options={paypalOptions} deferLoading={!paypalClientId}>
           {children}
         </PayPalScriptProvider>
         <Toaster richColors position="top-right" />
