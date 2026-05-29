@@ -26,6 +26,13 @@ import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import dynamic from 'next/dynamic';
+
+// Dynamically import PayPalButtons to avoid SSR issues
+const PayPalButtons = dynamic(
+  () => import('@paypal/react-paypal-js').then((mod) => mod.PayPalButtons),
+  { ssr: false }
+);
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
@@ -59,6 +66,9 @@ export default function CheckoutPage() {
   // Check if all items are free
   const isAllFree = total === 0;
   const hasAnyFree = items.some((item) => item.price === 0 || item.discountPrice === 0);
+
+  // PayPal Client ID
+  const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
 
   // Loading auth state
   if (status === 'loading') {
@@ -279,6 +289,7 @@ export default function CheckoutPage() {
     );
   }
 
+  // Handle card/simulated payment
   const handleSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -292,7 +303,10 @@ export default function CheckoutPage() {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: orderItems }),
+        body: JSON.stringify({
+          items: orderItems,
+          paymentMethod: paymentMethod,
+        }),
       });
 
       if (!res.ok) {
@@ -306,6 +320,73 @@ export default function CheckoutPage() {
       setOrderSuccess(true);
     } catch (error) {
       console.error('Checkout error:', error);
+      toast.error('Failed to place order. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // PayPal create order callback
+  const handlePayPalCreateOrder = async () => {
+    try {
+      const paypalItems = items.map((item) => ({
+        bookId: item.bookId,
+        title: item.title,
+        quantity: item.quantity,
+        price: (item.discountPrice || item.price),
+      }));
+
+      const res = await fetch('/api/paypal/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ total, items: paypalItems }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to create PayPal order');
+      }
+
+      const data = await res.json();
+      return data.orderID;
+    } catch (error) {
+      console.error('PayPal create order error:', error);
+      toast.error('Failed to initiate PayPal payment. Please try again.');
+      throw error;
+    }
+  };
+
+  // PayPal on approve callback
+  const handlePayPalOnApprove = async (data: { orderID: string }) => {
+    setIsSubmitting(true);
+    try {
+      const orderItems = items.map((item) => ({
+        bookId: item.bookId,
+        quantity: item.quantity,
+      }));
+
+      const res = await fetch('/api/paypal/capture-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paypalOrderID: data.orderID,
+          items: orderItems,
+        }),
+      });
+
+      if (!res.ok) {
+        const responseData = await res.json();
+        throw new Error(responseData.error || 'Failed to capture PayPal payment');
+      }
+
+      const responseData = await res.json();
+      setOrderNumber(responseData.order?.id || 'ORD-' + Date.now().toString(36).toUpperCase());
+      clearCart();
+      setOrderSuccess(true);
+      toast.success('Payment completed successfully!');
+    } catch (error) {
+      console.error('PayPal capture error:', error);
+      toast.error('PayPal payment failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -369,20 +450,35 @@ export default function CheckoutPage() {
                   >
                     <h2 className="text-lg font-semibold mb-4">Payment Method</h2>
                     <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
-                      <div className="flex items-center space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors">
+                      <div
+                        className={cn(
+                          "flex items-center space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors",
+                          paymentMethod === 'card' && 'border-violet-500 bg-violet-50/50 dark:bg-violet-950/20'
+                        )}
+                      >
                         <RadioGroupItem value="card" id="card" />
                         <Label htmlFor="card" className="flex items-center gap-2 cursor-pointer flex-1">
                           <CreditCard className="size-4 text-violet-500" />
                           <span className="font-medium">Credit / Debit Card</span>
                         </Label>
-                        <span className="text-xs text-muted-foreground">Stripe</span>
+                        <span className="text-xs text-muted-foreground">Secure</span>
                       </div>
-                      <div className="flex items-center space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors opacity-50">
-                        <RadioGroupItem value="paypal" id="paypal" disabled />
+                      <div
+                        className={cn(
+                          "flex items-center space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors",
+                          paymentMethod === 'paypal' && 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/20'
+                        )}
+                      >
+                        <RadioGroupItem value="paypal" id="paypal" />
                         <Label htmlFor="paypal" className="flex items-center gap-2 cursor-pointer flex-1">
+                          <svg className="size-4" viewBox="0 0 24 24" fill="none">
+                            <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .757-.654h6.328c2.352 0 4.047.644 4.898 1.867.395.566.637 1.207.72 1.916.087.754-.023 1.63-.337 2.676-.733 2.468-2.128 3.988-4.148 4.502a9.61 9.61 0 0 1-2.346.282H8.19a.77.77 0 0 0-.757.654l-.357 2.267-.01.063-1.057 6.744z" fill="#003087"/>
+                            <path d="M21.076 8.933c-.023.146-.049.295-.078.447-.953 4.878-4.215 6.565-8.38 6.565h-2.12a1.03 1.03 0 0 0-1.017.868l-.957 6.06-.252 1.598a.544.544 0 0 0 .537.629h3.764a.901.901 0 0 0 .888-.76l.037-.189.705-4.468.046-.246a.901.901 0 0 1 .888-.76h.56c3.624 0 6.457-1.47 7.288-5.724.346-1.777.167-3.26-.75-4.3-.278-.314-.622-.577-1.017-.8z" fill="#0070E0"/>
+                            <path d="M19.823 8.393a6.69 6.69 0 0 0-.836-.19 10.6 10.6 0 0 0-1.692-.128h-5.116a.9.9 0 0 0-.888.761l-.745 4.726-.023.148a1.03 1.03 0 0 1 1.017-.868h2.12c4.165 0 7.427-1.688 8.38-6.565.029-.152.055-.301.078-.447a5.21 5.21 0 0 0-.8-.341 7.028 7.028 0 0 0-.447-.132 4.09 4.09 0 0 1-.848-.064z" fill="#012169"/>
+                          </svg>
                           <span className="font-medium">PayPal</span>
                         </Label>
-                        <span className="text-xs text-muted-foreground">Coming Soon</span>
+                        <span className="text-xs text-muted-foreground">Fast & Secure</span>
                       </div>
                     </RadioGroup>
                   </motion.div>
@@ -457,6 +553,52 @@ export default function CheckoutPage() {
                           <Lock className="size-3" />
                           <span>Your payment information is encrypted and secure</span>
                         </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* PayPal Payment Section */}
+                  <AnimatePresence>
+                    {paymentMethod === 'paypal' && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="rounded-xl border bg-card p-6 shadow-sm overflow-hidden"
+                      >
+                        <h2 className="text-lg font-semibold mb-4">Pay with PayPal</h2>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          You will be redirected to PayPal to complete your payment securely.
+                        </p>
+                        {paypalClientId ? (
+                          <div className="min-h-[150px]">
+                            <PayPalButtons
+                              style={{
+                                layout: 'vertical',
+                                color: 'gold',
+                                shape: 'rect',
+                                label: 'paypal',
+                                height: 45,
+                              }}
+                              createOrder={handlePayPalCreateOrder}
+                              onApprove={handlePayPalOnApprove}
+                              onError={(err) => {
+                                console.error('PayPal button error:', err);
+                                toast.error('PayPal payment failed. Please try again.');
+                              }}
+                              onCancel={() => {
+                                toast.info('PayPal payment cancelled.');
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-dashed border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20 p-4 text-center">
+                            <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                              PayPal is being configured. Please use card payment for now.
+                            </p>
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -555,33 +697,45 @@ export default function CheckoutPage() {
                   </span>
                 </div>
 
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className={cn(
-                    'w-full shadow-lg h-12 text-base',
-                    isAllFree
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
-                      : 'bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white'
-                  )}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="size-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : isAllFree ? (
-                    <>
-                      <Download className="size-4 mr-2" />
-                      Confirm Free Order
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="size-4 mr-2" />
-                      Place Order
-                    </>
-                  )}
-                </Button>
+                {/* Place Order button - only for card/free orders */}
+                {(paymentMethod === 'card' || isAllFree) && (
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className={cn(
+                      'w-full shadow-lg h-12 text-base',
+                      isAllFree
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
+                        : 'bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white'
+                    )}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="size-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : isAllFree ? (
+                      <>
+                        <Download className="size-4 mr-2" />
+                        Confirm Free Order
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="size-4 mr-2" />
+                        Place Order
+                      </>
+                    )}
+                  </Button>
+                )}
+
+                {/* PayPal info when PayPal is selected */}
+                {paymentMethod === 'paypal' && !isAllFree && (
+                  <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-3 text-center">
+                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                      Click the PayPal button above to complete your payment
+                    </p>
+                  </div>
+                )}
 
                 <p className="text-xs text-center text-muted-foreground">
                   {isAllFree

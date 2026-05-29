@@ -56,7 +56,11 @@ export async function POST(request: NextRequest) {
 
     const userId = (session.user as Record<string, unknown>).id as string;
     const body = await request.json();
-    const { items } = body as { items: { bookId: string; quantity: number }[] };
+    const { items, paymentMethod, paypalOrderId } = body as {
+      items: { bookId: string; quantity: number }[];
+      paymentMethod?: string;
+      paypalOrderId?: string;
+    };
 
     if (!items || items.length === 0) {
       return NextResponse.json(
@@ -100,6 +104,8 @@ export async function POST(request: NextRequest) {
         userId,
         total,
         paymentStatus: total === 0 ? "COMPLETED" : "PENDING",
+        paymentMethod: paymentMethod || 'card',
+        paypalOrderId: paypalOrderId || null,
         orderItems: {
           create: orderItemsData,
         },

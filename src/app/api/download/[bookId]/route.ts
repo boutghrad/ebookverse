@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import fs from 'fs';
-import path from 'path';
+
+export const dynamic = 'force-dynamic';
 
 // GET /api/download/[bookId] - Download a book PDF
 export async function GET(
@@ -15,12 +15,14 @@ export async function GET(
 
     // Check authentication
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Please sign in to download books' },
         { status: 401 }
       );
     }
+
+    const userId = (session.user as Record<string, unknown>).id as string;
 
     // Find the book
     const book = await db.book.findUnique({
@@ -51,14 +53,13 @@ export async function GET(
 
     const isFree = book.price === 0 || book.discountPrice === 0;
 
-    // For free books, allow download directly
+    // For paid books, check if user has a completed order
     if (!isFree) {
-      // For paid books, check if user has purchased it
       const order = await db.order.findFirst({
         where: {
-          userId: session.user.id,
-          status: { in: ['COMPLETED', 'DELIVERED'] },
-          items: {
+          userId,
+          paymentStatus: { in: ['COMPLETED', 'DELIVERED'] },
+          orderItems: {
             some: {
               bookId: book.id,
             },
@@ -74,29 +75,8 @@ export async function GET(
       }
     }
 
-    // Read the PDF file
-    const pdfPath = path.join(process.cwd(), 'public', book.pdfUrl);
-
-    if (!fs.existsSync(pdfPath)) {
-      return NextResponse.json(
-        { error: 'PDF file not found on server' },
-        { status: 404 }
-      );
-    }
-
-    const fileBuffer = fs.readFileSync(pdfPath);
-    const filename = `${book.slug || book.title.replace(/\s+/g, '-').toLowerCase()}.pdf`;
-
-    // Return the PDF file with download headers
-    return new NextResponse(fileBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
-        'Content-Length': fileBuffer.length.toString(),
-        'Cache-Control': 'no-cache',
-      },
-    });
+    // Redirect to the PDF URL (stored in public or external)
+    return NextResponse.redirect(new URL(book.pdfUrl, request.url));
   } catch (error) {
     console.error('Error downloading book:', error);
     return NextResponse.json(
