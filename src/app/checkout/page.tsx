@@ -26,13 +26,7 @@ import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import dynamic from 'next/dynamic';
-
-// Dynamically import PayPalButtons to avoid SSR issues
-const PayPalButtons = dynamic(
-  () => import('@paypal/react-paypal-js').then((mod) => mod.PayPalButtons),
-  { ssr: false }
-);
+import { PayPalButtons } from '@paypal/react-paypal-js';
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
@@ -571,7 +565,7 @@ export default function CheckoutPage() {
                         <p className="text-sm text-muted-foreground mb-4">
                           You will be redirected to PayPal to complete your payment securely.
                         </p>
-                        {paypalClientId ? (
+                        {paypalClientId && paypalClientId !== 'sb' ? (
                           <div className="min-h-[150px]">
                             <PayPalButtons
                               style={{
@@ -585,7 +579,7 @@ export default function CheckoutPage() {
                               onApprove={handlePayPalOnApprove}
                               onError={(err) => {
                                 console.error('PayPal button error:', err);
-                                toast.error('PayPal payment failed. Please try again.');
+                                toast.error('PayPal payment failed. Please verify your PayPal credentials or use card payment.');
                               }}
                               onCancel={() => {
                                 toast.info('PayPal payment cancelled.');
@@ -593,9 +587,17 @@ export default function CheckoutPage() {
                             />
                           </div>
                         ) : (
-                          <div className="rounded-lg border border-dashed border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20 p-4 text-center">
-                            <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                              PayPal is being configured. Please use card payment for now.
+                          <div className="rounded-lg border border-dashed border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20 p-6 text-center">
+                            <svg className="size-8 mx-auto mb-3 text-yellow-600 dark:text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10"/>
+                              <line x1="12" y1="8" x2="12" y2="12"/>
+                              <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                            <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400 mb-1">
+                              PayPal Setup Required
+                            </p>
+                            <p className="text-xs text-yellow-600/80 dark:text-yellow-400/80">
+                              PayPal credentials need to be configured. Please use card payment for now.
                             </p>
                           </div>
                         )}

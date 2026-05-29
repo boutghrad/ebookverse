@@ -27,13 +27,16 @@ export async function POST(request: NextRequest) {
     const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
-      return NextResponse.json({ error: 'PayPal not configured' }, { status: 500 });
+      return NextResponse.json({ error: 'PayPal not configured. Please use card payment.' }, { status: 503 });
     }
+
+    // Determine PayPal API base URL (sandbox vs live)
+    const paypalApiBase = process.env.PAYPAL_API_BASE || 'https://api-m.sandbox.paypal.com';
 
     // Get PayPal access token
     const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     const tokenResponse = await fetch(
-      `${process.env.PAYPAL_API_BASE || 'https://api-m.sandbox.paypal.com'}/v1/oauth2/token`,
+      `${paypalApiBase}/v1/oauth2/token`,
       {
         method: 'POST',
         headers: {
@@ -47,14 +50,16 @@ export async function POST(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errText = await tokenResponse.text();
       console.error('PayPal token error:', errText);
-      return NextResponse.json({ error: 'Failed to authenticate with PayPal' }, { status: 500 });
+      return NextResponse.json({
+        error: 'PayPal authentication failed. Please verify your PayPal credentials or use card payment.',
+      }, { status: 502 });
     }
 
     const { access_token } = await tokenResponse.json();
 
     // Create PayPal order
     const orderResponse = await fetch(
-      `${process.env.PAYPAL_API_BASE || 'https://api-m.sandbox.paypal.com'}/v2/checkout/orders`,
+      `${paypalApiBase}/v2/checkout/orders`,
       {
         method: 'POST',
         headers: {
@@ -94,7 +99,7 @@ export async function POST(request: NextRequest) {
     if (!orderResponse.ok) {
       const errText = await orderResponse.text();
       console.error('PayPal create order error:', errText);
-      return NextResponse.json({ error: 'Failed to create PayPal order' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to create PayPal order' }, { status: 502 });
     }
 
     const paypalOrder = await orderResponse.json();
