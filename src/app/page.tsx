@@ -1,6 +1,7 @@
 import Navbar from '@/components/landing/Navbar';
 import Hero from '@/components/landing/Hero';
 import Features from '@/components/landing/Features';
+import PromoVideo from '@/components/landing/PromoVideo';
 import Categories from '@/components/landing/Categories';
 import FreeBooks from '@/components/landing/FreeBooks';
 import BestSellers from '@/components/landing/BestSellers';
@@ -16,6 +17,7 @@ export default function Home() {
       <main className="flex-1">
         <Hero />
         <Features />
+        <PromoVideo />
         <Categories />
         <FreeBooks />
         <BestSellers />
