@@ -2,11 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import {
-  CreditCard,
   Lock,
   CheckCircle2,
   ShoppingBag,
@@ -15,12 +13,10 @@ import {
   Loader2,
   Gift,
   Download,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCartStore } from '@/lib/store';
 import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
@@ -30,17 +26,11 @@ import { PayPalButtons } from '@paypal/react-paypal-js';
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
   const { items, getTotal, clearCart } = useCartStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('card');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvc, setCardCvc] = useState('');
-  const [cardName, setCardName] = useState('');
 
   const subtotal = useMemo(() => {
     return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -247,7 +237,7 @@ export default function CheckoutPage() {
     );
   }
 
-  // Empty cart - redirect to cart page
+  // Empty cart
   if (items.length === 0) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -283,8 +273,8 @@ export default function CheckoutPage() {
     );
   }
 
-  // Handle card/simulated payment
-  const handleSubmit = async () => {
+  // Handle free order submission
+  const handleFreeOrder = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
@@ -299,7 +289,7 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: orderItems,
-          paymentMethod: paymentMethod,
+          paymentMethod: 'free',
         }),
       });
 
@@ -426,185 +416,80 @@ export default function CheckoutPage() {
                         Free Order - No Payment Required!
                       </h3>
                       <p className="text-sm text-emerald-600/80 dark:text-emerald-400/80 mt-1">
-                        All items in your cart are free. Just confirm your order and download your books instantly. No credit card needed.
+                        All items in your cart are free. Just confirm your order and download your books instantly.
                       </p>
                     </div>
                   </div>
                 </motion.div>
               )}
 
-              {/* Payment Method - only show if not all free */}
+              {/* PayPal Payment Section - only show if not all free */}
               {!isAllFree && (
-                <>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="rounded-xl border bg-card p-6 shadow-sm"
-                  >
-                    <h2 className="text-lg font-semibold mb-4">Payment Method</h2>
-                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
-                      <div
-                        className={cn(
-                          "flex items-center space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors",
-                          paymentMethod === 'card' && 'border-violet-500 bg-violet-50/50 dark:bg-violet-950/20'
-                        )}
-                      >
-                        <RadioGroupItem value="card" id="card" />
-                        <Label htmlFor="card" className="flex items-center gap-2 cursor-pointer flex-1">
-                          <CreditCard className="size-4 text-violet-500" />
-                          <span className="font-medium">Credit / Debit Card</span>
-                        </Label>
-                        <span className="text-xs text-muted-foreground">Secure</span>
-                      </div>
-                      <div
-                        className={cn(
-                          "flex items-center space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors",
-                          paymentMethod === 'paypal' && 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/20'
-                        )}
-                      >
-                        <RadioGroupItem value="paypal" id="paypal" />
-                        <Label htmlFor="paypal" className="flex items-center gap-2 cursor-pointer flex-1">
-                          <svg className="size-4" viewBox="0 0 24 24" fill="none">
-                            <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .757-.654h6.328c2.352 0 4.047.644 4.898 1.867.395.566.637 1.207.72 1.916.087.754-.023 1.63-.337 2.676-.733 2.468-2.128 3.988-4.148 4.502a9.61 9.61 0 0 1-2.346.282H8.19a.77.77 0 0 0-.757.654l-.357 2.267-.01.063-1.057 6.744z" fill="#003087"/>
-                            <path d="M21.076 8.933c-.023.146-.049.295-.078.447-.953 4.878-4.215 6.565-8.38 6.565h-2.12a1.03 1.03 0 0 0-1.017.868l-.957 6.06-.252 1.598a.544.544 0 0 0 .537.629h3.764a.901.901 0 0 0 .888-.76l.037-.189.705-4.468.046-.246a.901.901 0 0 1 .888-.76h.56c3.624 0 6.457-1.47 7.288-5.724.346-1.777.167-3.26-.75-4.3-.278-.314-.622-.577-1.017-.8z" fill="#0070E0"/>
-                            <path d="M19.823 8.393a6.69 6.69 0 0 0-.836-.19 10.6 10.6 0 0 0-1.692-.128h-5.116a.9.9 0 0 0-.888.761l-.745 4.726-.023.148a1.03 1.03 0 0 1 1.017-.868h2.12c4.165 0 7.427-1.688 8.38-6.565.029-.152.055-.301.078-.447a5.21 5.21 0 0 0-.8-.341 7.028 7.028 0 0 0-.447-.132 4.09 4.09 0 0 1-.848-.064z" fill="#012169"/>
-                          </svg>
-                          <span className="font-medium">PayPal</span>
-                        </Label>
-                        <span className="text-xs text-muted-foreground">Fast & Secure</span>
-                      </div>
-                    </RadioGroup>
-                  </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="rounded-xl border bg-card p-6 shadow-sm"
+                >
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="flex items-center justify-center size-10 rounded-xl bg-blue-100 dark:bg-blue-950/50">
+                      <svg className="size-5" viewBox="0 0 24 24" fill="none">
+                        <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .757-.654h6.328c2.352 0 4.047.644 4.898 1.867.395.566.637 1.207.72 1.916.087.754-.023 1.63-.337 2.676-.733 2.468-2.128 3.988-4.148 4.502a9.61 9.61 0 0 1-2.346.282H8.19a.77.77 0 0 0-.757.654l-.357 2.267-.01.063-1.057 6.744z" fill="#003087"/>
+                        <path d="M21.076 8.933c-.023.146-.049.295-.078.447-.953 4.878-4.215 6.565-8.38 6.565h-2.12a1.03 1.03 0 0 0-1.017.868l-.957 6.06-.252 1.598a.544.544 0 0 0 .537.629h3.764a.901.901 0 0 0 .888-.76l.037-.189.705-4.468.046-.246a.901.901 0 0 1 .888-.76h.56c3.624 0 6.457-1.47 7.288-5.724.346-1.777.167-3.26-.75-4.3-.278-.314-.622-.577-1.017-.8z" fill="#0070E0"/>
+                        <path d="M19.823 8.393a6.69 6.69 0 0 0-.836-.19 10.6 10.6 0 0 0-1.692-.128h-5.116a.9.9 0 0 0-.888.761l-.745 4.726-.023.148a1.03 1.03 0 0 1 1.017-.868h2.12c4.165 0 7.427-1.688 8.38-6.565.029-.152.055-.301.078-.447a5.21 5.21 0 0 0-.8-.341 7.028 7.028 0 0 0-.447-.132 4.09 4.09 0 0 1-.848-.064z" fill="#012169"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold">Pay with PayPal</h2>
+                      <p className="text-xs text-muted-foreground">Fast & secure payment</p>
+                    </div>
+                    <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <ShieldCheck className="size-3.5 text-emerald-500" />
+                      Secure
+                    </div>
+                  </div>
 
-                  {/* Credit Card Form */}
-                  <AnimatePresence>
-                    {paymentMethod === 'card' && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="rounded-xl border bg-card p-6 shadow-sm overflow-hidden"
-                      >
-                        <h2 className="text-lg font-semibold mb-4">Card Details</h2>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="cardName">Name on Card</Label>
-                            <Input
-                              id="cardName"
-                              placeholder="John Doe"
-                              value={cardName}
-                              onChange={(e) => setCardName(e.target.value)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="cardNumber">Card Number</Label>
-                            <div className="relative">
-                              <Input
-                                id="cardNumber"
-                                placeholder="4242 4242 4242 4242"
-                                value={cardNumber}
-                                onChange={(e) => {
-                                  const val = e.target.value.replace(/\D/g, '').slice(0, 16);
-                                  const formatted = val.replace(/(.{4})/g, '$1 ').trim();
-                                  setCardNumber(formatted);
-                                }}
-                                maxLength={19}
-                                className="pr-12"
-                              />
-                              <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="expiry">Expiry Date</Label>
-                              <Input
-                                id="expiry"
-                                placeholder="MM/YY"
-                                value={cardExpiry}
-                                onChange={(e) => {
-                                  let val = e.target.value.replace(/\D/g, '').slice(0, 4);
-                                  if (val.length > 2) val = val.slice(0, 2) + '/' + val.slice(2);
-                                  setCardExpiry(val);
-                                }}
-                                maxLength={5}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="cvc">CVC</Label>
-                              <Input
-                                id="cvc"
-                                placeholder="123"
-                                value={cardCvc}
-                                onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                                maxLength={4}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 mt-4 text-xs text-muted-foreground">
-                          <Lock className="size-3" />
-                          <span>Your payment information is encrypted and secure</span>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  <p className="text-sm text-muted-foreground mb-5">
+                    Click the PayPal button below to complete your payment securely. You will be redirected to PayPal to authorize the payment.
+                  </p>
 
-                  {/* PayPal Payment Section */}
-                  <AnimatePresence>
-                    {paymentMethod === 'paypal' && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="rounded-xl border bg-card p-6 shadow-sm overflow-hidden"
-                      >
-                        <h2 className="text-lg font-semibold mb-4">Pay with PayPal</h2>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          You will be redirected to PayPal to complete your payment securely.
-                        </p>
-                        {paypalClientId && paypalClientId !== 'sb' ? (
-                          <div className="min-h-[150px]">
-                            <PayPalButtons
-                              style={{
-                                layout: 'vertical',
-                                color: 'gold',
-                                shape: 'rect',
-                                label: 'paypal',
-                                height: 45,
-                              }}
-                              createOrder={handlePayPalCreateOrder}
-                              onApprove={handlePayPalOnApprove}
-                              onError={(err) => {
-                                console.error('PayPal button error:', err);
-                                toast.error('PayPal payment failed. Please verify your PayPal credentials or use card payment.');
-                              }}
-                              onCancel={() => {
-                                toast.info('PayPal payment cancelled.');
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="rounded-lg border border-dashed border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20 p-6 text-center">
-                            <svg className="size-8 mx-auto mb-3 text-yellow-600 dark:text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <circle cx="12" cy="12" r="10"/>
-                              <line x1="12" y1="8" x2="12" y2="12"/>
-                              <line x1="12" y1="16" x2="12.01" y2="16"/>
-                            </svg>
-                            <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400 mb-1">
-                              PayPal Setup Required
-                            </p>
-                            <p className="text-xs text-yellow-600/80 dark:text-yellow-400/80">
-                              PayPal credentials need to be configured. Please use card payment for now.
-                            </p>
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </>
+                  {paypalClientId && paypalClientId !== 'sb' ? (
+                    <div className="min-h-[150px]">
+                      <PayPalButtons
+                        style={{
+                          layout: 'vertical',
+                          color: 'gold',
+                          shape: 'rect',
+                          label: 'paypal',
+                          height: 45,
+                        }}
+                        createOrder={handlePayPalCreateOrder}
+                        onApprove={handlePayPalOnApprove}
+                        onError={(err) => {
+                          console.error('PayPal button error:', err);
+                          toast.error('PayPal payment failed. Please try again.');
+                        }}
+                        onCancel={() => {
+                          toast.info('PayPal payment cancelled.');
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20 p-6 text-center">
+                      <svg className="size-8 mx-auto mb-3 text-yellow-600 dark:text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                      <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400 mb-1">
+                        PayPal Setup Required
+                      </p>
+                      <p className="text-xs text-yellow-600/80 dark:text-yellow-400/80">
+                        PayPal credentials need to be configured. Please contact support.
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
               )}
 
               {/* Mixed cart notice - some free, some paid */}
@@ -699,39 +584,29 @@ export default function CheckoutPage() {
                   </span>
                 </div>
 
-                {/* Place Order button - only for card/free orders */}
-                {(paymentMethod === 'card' || isAllFree) && (
+                {/* Free Order Button */}
+                {isAllFree && (
                   <Button
-                    onClick={handleSubmit}
+                    onClick={handleFreeOrder}
                     disabled={isSubmitting}
-                    className={cn(
-                      'w-full shadow-lg h-12 text-base',
-                      isAllFree
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
-                        : 'bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white'
-                    )}
+                    className="w-full shadow-lg h-12 text-base bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
                   >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="size-4 mr-2 animate-spin" />
                         Processing...
                       </>
-                    ) : isAllFree ? (
+                    ) : (
                       <>
                         <Download className="size-4 mr-2" />
                         Confirm Free Order
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="size-4 mr-2" />
-                        Place Order
                       </>
                     )}
                   </Button>
                 )}
 
-                {/* PayPal info when PayPal is selected */}
-                {paymentMethod === 'paypal' && !isAllFree && (
+                {/* PayPal info when not free */}
+                {!isAllFree && (
                   <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-3 text-center">
                     <p className="text-xs text-blue-600 dark:text-blue-400">
                       Click the PayPal button above to complete your payment
