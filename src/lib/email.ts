@@ -1,7 +1,14 @@
 import { Resend } from 'resend';
 import { db } from '@/lib/db';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-initialize Resend to avoid build-time errors when RESEND_API_KEY is not set
+let _resend: Resend | null = null;
+function getResend(): Resend {
+  if (!_resend) {
+    _resend = new Resend(process.env.RESEND_API_KEY || '');
+  }
+  return _resend;
+}
 
 const FROM_EMAIL = 'EbookVerse <onboarding@resend.dev>';
 const APP_URL = process.env.NEXTAUTH_URL || 'https://ebookverse-ochre.vercel.app';
@@ -39,7 +46,7 @@ export async function sendEmail({ to, subject, html, userId, emailType = 'notifi
       return { success: false, error: 'RESEND_API_KEY not configured' };
     }
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: FROM_EMAIL,
       to,
       subject,
