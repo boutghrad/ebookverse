@@ -596,7 +596,7 @@ export default function AdminDashboard() {
         <motion.div variants={itemVariants}>
           <Card>
             <CardHeader>
-              <CardTitle>Top Selling Books</cardTitle>
+              <CardTitle>Top Selling Books</CardTitle>
               <CardDescription>Best performers by total sales</CardDescription>
             </CardHeader>
             <CardContent>
