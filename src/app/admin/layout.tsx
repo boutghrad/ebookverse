@@ -1,27 +1,40 @@
 'use client';
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { SessionProvider, useSession } from 'next-auth/react';
 import AdminSidebar from '@/components/admin/AdminSidebar';
-import { ShieldAlert, Loader2 } from 'lucide-react';
+import { ShieldAlert, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 function AdminGuard({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const router = useRouter();
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
     () => false
   );
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (mounted && status === 'unauthenticated') {
       router.push('/auth/signin');
     }
   }, [mounted, status, router]);
+
+  // Auto-refresh session when authenticated but not admin
+  // This ensures role changes in the database are picked up immediately
+  useEffect(() => {
+    if (mounted && status === 'authenticated' && session?.user) {
+      const isAdmin = (session.user as Record<string, unknown>)?.role === 'ADMIN';
+      if (!isAdmin) {
+        // Force session refresh to pick up role changes from DB
+        update();
+      }
+    }
+  }, [mounted, status, session, update]);
 
   if (!mounted || status === 'loading') {
     return (
@@ -53,9 +66,32 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
               You do not have permission to access the admin dashboard. Only administrators can view this page.
             </p>
           </div>
-          <Button asChild className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white">
-            <Link href="/">Back to Store</Link>
-          </Button>
+          <div className="flex flex-col gap-3 w-full">
+            <Button
+              onClick={async () => {
+                setRefreshing(true);
+                try {
+                  await update();
+                  router.refresh();
+                } finally {
+                  setRefreshing(false);
+                }
+              }}
+              disabled={refreshing}
+              variant="outline"
+              className="w-full"
+            >
+              {refreshing ? (
+                <Loader2 className="size-4 animate-spin mr-2" />
+              ) : (
+                <RefreshCw className="size-4 mr-2" />
+              )}
+              Refresh Session
+            </Button>
+            <Button asChild className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white">
+              <Link href="/">Back to Store</Link>
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -79,7 +115,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SessionProvider>
+    <SessionProvider refetchInterval={30} refetchOnWindowFocus={true}>
       <AdminGuard>{children}</AdminGuard>
     </SessionProvider>
   );
