@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
+
+const ZAI_BASE_URL = 'https://internal-api.z.ai/v1';
+const ZAI_API_KEY = process.env.ZAI_API_KEY || 'Z.ai';
+const ZAI_TOKEN = process.env.ZAI_TOKEN || '';
+const ZAI_USER_ID = process.env.ZAI_USER_ID || '';
 
 const SYSTEM_PROMPT = `You are EbookBot, the friendly AI assistant for EbookVerse — an online eBook store. Your role is to help users discover books, navigate the website, answer questions about ebooks, and provide recommendations.
 
@@ -119,6 +123,40 @@ async function getBookContext(query: string): Promise<string> {
     : '';
 }
 
+async function callZAI(messages: { role: string; content: string }[]): Promise<string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${ZAI_API_KEY}`,
+    'X-Z-AI-From': 'Z',
+  };
+
+  if (ZAI_TOKEN) {
+    headers['X-Token'] = ZAI_TOKEN;
+  }
+  if (ZAI_USER_ID) {
+    headers['X-User-Id'] = ZAI_USER_ID;
+  }
+
+  const response = await fetch(`${ZAI_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      messages,
+      temperature: 0.7,
+      max_tokens: 500,
+      thinking: { type: 'disabled' },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`ZAI API request failed with status ${response.status}: ${errorBody}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json();
@@ -131,25 +169,17 @@ export async function POST(req: NextRequest) {
     const lastUserMessage = messages.filter((m: { role: string }) => m.role === 'user').pop();
     const bookContext = lastUserMessage ? await getBookContext(lastUserMessage.content) : '';
 
-    const zai = await ZAI.create();
-
-    const completion = await zai.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: SYSTEM_PROMPT + bookContext,
-        },
-        ...messages,
-      ],
-      temperature: 0.7,
-      max_tokens: 500,
-    });
-
-    const reply = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response. Please try again.';
+    const reply = await callZAI([
+      {
+        role: 'system',
+        content: SYSTEM_PROMPT + bookContext,
+      },
+      ...messages,
+    ]);
 
     return NextResponse.json({ reply });
   } catch (error: any) {
-    console.error('Chat API error:', error);
+    console.error('Chat API error:', error.message || error);
     return NextResponse.json(
       { error: 'Failed to generate response', reply: 'Sorry, I encountered an error. Please try again later.' },
       { status: 500 }
