@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Chat API error:', error.message || error);
     return NextResponse.json(
-      { error: 'Failed to generate response', reply: 'Sorry, I encountered an error. Please try again later.' },
+      { error: 'Failed to generate response', reply: 'Sorry, I encountered an error. Please try again later.', debug: error.message || String(error) },
       { status: 500 }
     );
   }
