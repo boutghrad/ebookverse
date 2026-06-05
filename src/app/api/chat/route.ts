@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import ZAI from 'z-ai-web-dev-sdk';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -30,113 +31,29 @@ async function getBookContext(query: string): Promise<string> {
   const contextParts: string[] = [];
   try {
     const lowerQuery = query.toLowerCase();
-    if (
-      lowerQuery.includes('categor') || lowerQuery.includes('genre') ||
-      lowerQuery.includes('type') || lowerQuery.includes('kind')
-    ) {
-      const categories = await db.category.findMany({
-        include: { _count: { select: { books: true } } },
-        take: 10,
-      });
+    if (lowerQuery.includes('categor') || lowerQuery.includes('genre') || lowerQuery.includes('type') || lowerQuery.includes('kind')) {
+      const categories = await db.category.findMany({ include: { _count: { select: { books: true } } }, take: 10 });
       if (categories.length > 0) {
         contextParts.push('Available categories: ' + categories.map((c) => `${c.name} (${c._count.books} books)`).join(', '));
       }
     }
-    if (
-      lowerQuery.includes('book') || lowerQuery.includes('recommend') ||
-      lowerQuery.includes('suggest') || lowerQuery.includes('find') ||
-      lowerQuery.includes('search') || lowerQuery.includes('author') ||
-      lowerQuery.includes('trending') || lowerQuery.includes('popular') ||
-      lowerQuery.includes('best') || lowerQuery.includes('free') ||
-      lowerQuery.includes('discount') || lowerQuery.includes('price')
-    ) {
+    if (lowerQuery.includes('book') || lowerQuery.includes('recommend') || lowerQuery.includes('suggest') ||
+        lowerQuery.includes('find') || lowerQuery.includes('search') || lowerQuery.includes('author') ||
+        lowerQuery.includes('trending') || lowerQuery.includes('popular') || lowerQuery.includes('best') ||
+        lowerQuery.includes('free') || lowerQuery.includes('discount') || lowerQuery.includes('price')) {
       const [trending, featured, freeBooks] = await Promise.all([
-        db.book.findMany({
-          where: { trending: true },
-          select: { title: true, author: true, price: true, discountPrice: true, rating: true, category: { select: { name: true } } },
-          take: 5, orderBy: { totalSales: 'desc' },
-        }),
-        db.book.findMany({
-          where: { featured: true },
-          select: { title: true, author: true, price: true, discountPrice: true, rating: true, category: { select: { name: true } } },
-          take: 5, orderBy: { rating: 'desc' },
-        }),
-        db.book.findMany({
-          where: { price: 0 },
-          select: { title: true, author: true, rating: true, category: { select: { name: true } } },
-          take: 5,
-        }),
+        db.book.findMany({ where: { trending: true }, select: { title: true, author: true, price: true, discountPrice: true, rating: true, category: { select: { name: true } } }, take: 5, orderBy: { totalSales: 'desc' } }),
+        db.book.findMany({ where: { featured: true }, select: { title: true, author: true, price: true, discountPrice: true, rating: true, category: { select: { name: true } } }, take: 5, orderBy: { rating: 'desc' } }),
+        db.book.findMany({ where: { price: 0 }, select: { title: true, author: true, rating: true, category: { select: { name: true } } }, take: 5 }),
       ]);
-      if (trending.length > 0) {
-        contextParts.push('Trending books: ' + trending.map((b) => `${b.title} by ${b.author} ($${b.discountPrice ?? b.price}, ${b.category.name}, ${b.rating} stars)`).join('; '));
-      }
-      if (featured.length > 0) {
-        contextParts.push('Featured books: ' + featured.map((b) => `${b.title} by ${b.author} ($${b.discountPrice ?? b.price}, ${b.category.name}, ${b.rating} stars)`).join('; '));
-      }
-      if (freeBooks.length > 0) {
-        contextParts.push('Free books: ' + freeBooks.map((b) => `${b.title} by ${b.author} (${b.category.name}, ${b.rating} stars)`).join('; '));
-      }
+      if (trending.length > 0) contextParts.push('Trending books: ' + trending.map((b) => `${b.title} by ${b.author} ($${b.discountPrice ?? b.price}, ${b.category.name})`).join('; '));
+      if (featured.length > 0) contextParts.push('Featured books: ' + featured.map((b) => `${b.title} by ${b.author} ($${b.discountPrice ?? b.price}, ${b.category.name})`).join('; '));
+      if (freeBooks.length > 0) contextParts.push('Free books: ' + freeBooks.map((b) => `${b.title} by ${b.author} (${b.category.name})`).join('; '));
     }
   } catch (error) {
     console.error('Error fetching book context:', error);
   }
   return contextParts.length > 0 ? `\n\nCurrent store data:\n${contextParts.join('\n')}` : '';
-}
-
-async function callBigModel(messages: { role: string; content: string }[], model: string): Promise<{ ok: boolean; reply?: string; status?: number }> {
-  const apiKey = process.env.BIGMODEL_API_KEY;
-  if (!apiKey) return { ok: false };
-
-  try {
-    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 500 }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      const reply = data.choices?.[0]?.message?.content;
-      if (reply) return { ok: true, reply };
-    }
-    return { ok: false, status: response.status };
-  } catch {
-    return { ok: false };
-  }
-}
-
-async function callZAI(messages: { role: string; content: string }[]): Promise<{ ok: boolean; reply?: string }> {
-  const zaiToken = process.env.ZAI_TOKEN;
-  if (!zaiToken) return { ok: false };
-
-  try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer Z.ai',
-      'X-Z-AI-From': 'Z',
-      'X-Token': zaiToken,
-    };
-    const zaiUserId = process.env.ZAI_USER_ID;
-    if (zaiUserId) headers['X-User-Id'] = zaiUserId;
-
-    const response = await fetch('https://internal-api.z.ai/v1/chat/completions', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ messages, temperature: 0.7, max_tokens: 500, thinking: { type: 'disabled' } }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      const reply = data.choices?.[0]?.message?.content;
-      if (reply) return { ok: true, reply };
-    }
-    return { ok: false };
-  } catch {
-    return { ok: false };
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -148,28 +65,47 @@ export async function POST(req: NextRequest) {
 
     const lastUserMessage = messages.filter((m: { role: string }) => m.role === 'user').pop();
     const bookContext = lastUserMessage ? await getBookContext(lastUserMessage.content) : '';
-    const allMessages = [
-      { role: 'system', content: SYSTEM_PROMPT + bookContext },
-      ...messages,
-    ];
 
-    // Try providers in order: glm-z1-flash (free) -> glm-4-plus (paid) -> Z AI internal
-    const providers = [
-      () => callBigModel(allMessages, 'glm-z1-flash'),
-      () => callBigModel(allMessages, 'glm-4-plus'),
-      () => callZAI(allMessages),
-    ];
+    // Use ZAI SDK (reads .z-ai-config created during build)
+    const zai = await ZAI.create();
+    const completion = await zai.chat.completions.create({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT + bookContext },
+        ...messages,
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    });
 
-    for (const provider of providers) {
-      const result = await provider();
-      if (result.ok && result.reply) {
-        return NextResponse.json({ reply: result.reply });
-      }
-    }
+    const reply = completion.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
 
-    return NextResponse.json({ reply: 'Sorry, all AI services are currently busy. Please try again in a moment.' });
+    return NextResponse.json({ reply });
   } catch (error: any) {
     console.error('Chat API error:', error.message || error);
+
+    // Fallback: try BigModel API directly
+    try {
+      const bigModelKey = process.env.BIGMODEL_API_KEY;
+      if (bigModelKey) {
+        const lastUserMessage = (await req.json().catch(() => ({})))?.messages?.filter((m: any) => m.role === 'user')?.pop()?.content || '';
+        const fallbackResponse = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${bigModelKey}` },
+          body: JSON.stringify({
+            model: 'glm-4-plus',
+            messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: lastUserMessage || 'Hello' }],
+            temperature: 0.7,
+            max_tokens: 500,
+          }),
+        });
+        if (fallbackResponse.ok) {
+          const data = await fallbackResponse.json();
+          const reply = data.choices?.[0]?.message?.content;
+          if (reply) return NextResponse.json({ reply });
+        }
+      }
+    } catch {}
+
     return NextResponse.json({ reply: 'Sorry, I encountered an error. Please try again later.' });
   }
 }

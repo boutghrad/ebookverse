@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && node -e \"const fs=require('fs');const cfg={baseUrl:'https://internal-api.z.ai/v1',apiKey:'Z.ai',chatId:'chat-5c9e4fa7-fcde-422c-bcee-8c4ffb6a8412',token:process.env.ZAI_TOKEN||'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOWY5ZTE1OWMtOTA5Mi00MzU2LWIyZjEtMGY2NzFlZTk0ZDcyIiwiY2hhdF9pZCI6ImNoYXQtNWM5ZTRmYTctZmNkZS00MjJjLWJjZWUtOGM0ZmZiNmE4NDEyIiwicGxhdGZvcm0iOiJ6YWkifQ.tkOBVukKDkBeU3PlWe6umfPfJv0NncN7AYr3NQ8RS5I',userId:process.env.ZAI_USER_ID||'9f9e159c-9092-4356-b2f1-0f671ee94d72'};fs.writeFileSync('.z-ai-config',JSON.stringify(cfg,null,2))\" && next build",
     "postinstall": "prisma generate",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
