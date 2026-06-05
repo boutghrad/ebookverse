@@ -3,10 +3,13 @@ import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-const ZAI_BASE_URL = 'https://internal-api.z.ai/v1';
-const ZAI_API_KEY = process.env.ZAI_API_KEY || 'Z.ai';
-const ZAI_TOKEN = process.env.ZAI_TOKEN || '';
-const ZAI_USER_ID = process.env.ZAI_USER_ID || '';
+// Z AI API Configuration
+const ZAI_CONFIG = {
+  baseUrl: 'https://internal-api.z.ai/v1',
+  apiKey: process.env.ZAI_API_KEY || 'Z.ai',
+  token: process.env.ZAI_TOKEN || '',
+  userId: process.env.ZAI_USER_ID || '',
+};
 
 const SYSTEM_PROMPT = `You are EbookBot, the friendly AI assistant for EbookVerse — an online eBook store. Your role is to help users discover books, navigate the website, answer questions about ebooks, and provide recommendations.
 
@@ -126,18 +129,18 @@ async function getBookContext(query: string): Promise<string> {
 async function callZAI(messages: { role: string; content: string }[]): Promise<string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${ZAI_API_KEY}`,
+    'Authorization': `Bearer ${ZAI_CONFIG.apiKey}`,
     'X-Z-AI-From': 'Z',
   };
 
-  if (ZAI_TOKEN) {
-    headers['X-Token'] = ZAI_TOKEN;
+  if (ZAI_CONFIG.token) {
+    headers['X-Token'] = ZAI_CONFIG.token;
   }
-  if (ZAI_USER_ID) {
-    headers['X-User-Id'] = ZAI_USER_ID;
+  if (ZAI_CONFIG.userId) {
+    headers['X-User-Id'] = ZAI_CONFIG.userId;
   }
 
-  const response = await fetch(`${ZAI_BASE_URL}/chat/completions`, {
+  const response = await fetch(`${ZAI_CONFIG.baseUrl}/chat/completions`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -150,11 +153,39 @@ async function callZAI(messages: { role: string; content: string }[]): Promise<s
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`ZAI API request failed with status ${response.status}: ${errorBody}`);
+    throw new Error(`ZAI API failed (${response.status}): ${errorBody.substring(0, 200)}`);
   }
 
   const data = await response.json();
   return data.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
+}
+
+// Also support the BigModel/GLM API as fallback
+async function callBigModel(messages: { role: string; content: string }[]): Promise<string> {
+  const apiKey = process.env.BIGMODEL_API_KEY;
+  if (!apiKey) return '';
+
+  const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'glm-4-plus',
+      messages,
+      temperature: 0.7,
+      max_tokens: 500,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`BigModel API failed (${response.status}): ${errorBody.substring(0, 200)}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
 }
 
 export async function POST(req: NextRequest) {
@@ -169,19 +200,33 @@ export async function POST(req: NextRequest) {
     const lastUserMessage = messages.filter((m: { role: string }) => m.role === 'user').pop();
     const bookContext = lastUserMessage ? await getBookContext(lastUserMessage.content) : '';
 
-    const reply = await callZAI([
-      {
-        role: 'system',
-        content: SYSTEM_PROMPT + bookContext,
-      },
+    const allMessages = [
+      { role: 'system', content: SYSTEM_PROMPT + bookContext },
       ...messages,
-    ]);
+    ];
+
+    let reply = '';
+
+    // Try Z AI internal API first
+    try {
+      reply = await callZAI(allMessages);
+    } catch (zaiError: any) {
+      console.error('Z AI failed, trying BigModel fallback:', zaiError.message);
+
+      // Try BigModel API as fallback
+      try {
+        reply = await callBigModel(allMessages);
+      } catch (bmError: any) {
+        console.error('BigModel also failed:', bmError.message);
+        throw zaiError; // throw original error
+      }
+    }
 
     return NextResponse.json({ reply });
   } catch (error: any) {
     console.error('Chat API error:', error.message || error);
     return NextResponse.json(
-      { error: 'Failed to generate response', reply: 'Sorry, I encountered an error. Please try again later.', debug: error.message || String(error) },
+      { error: 'Failed to generate response', reply: 'Sorry, I encountered an error. Please try again later.' },
       { status: 500 }
     );
   }
