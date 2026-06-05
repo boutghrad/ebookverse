@@ -28,55 +28,38 @@ Guidelines:
 
 async function getBookContext(query: string): Promise<string> {
   const contextParts: string[] = [];
-
   try {
     const lowerQuery = query.toLowerCase();
-
     if (
-      lowerQuery.includes('categor') ||
-      lowerQuery.includes('genre') ||
-      lowerQuery.includes('type') ||
-      lowerQuery.includes('kind') ||
-      lowerQuery.includes('section')
+      lowerQuery.includes('categor') || lowerQuery.includes('genre') ||
+      lowerQuery.includes('type') || lowerQuery.includes('kind')
     ) {
       const categories = await db.category.findMany({
         include: { _count: { select: { books: true } } },
         take: 10,
       });
       if (categories.length > 0) {
-        contextParts.push(
-          'Available categories: ' +
-            categories.map((c) => `${c.name} (${c._count.books} books)`).join(', ')
-        );
+        contextParts.push('Available categories: ' + categories.map((c) => `${c.name} (${c._count.books} books)`).join(', '));
       }
     }
-
     if (
-      lowerQuery.includes('book') ||
-      lowerQuery.includes('recommend') ||
-      lowerQuery.includes('suggest') ||
-      lowerQuery.includes('find') ||
-      lowerQuery.includes('search') ||
-      lowerQuery.includes('author') ||
-      lowerQuery.includes('trending') ||
-      lowerQuery.includes('popular') ||
-      lowerQuery.includes('best') ||
-      lowerQuery.includes('free') ||
-      lowerQuery.includes('discount') ||
-      lowerQuery.includes('price')
+      lowerQuery.includes('book') || lowerQuery.includes('recommend') ||
+      lowerQuery.includes('suggest') || lowerQuery.includes('find') ||
+      lowerQuery.includes('search') || lowerQuery.includes('author') ||
+      lowerQuery.includes('trending') || lowerQuery.includes('popular') ||
+      lowerQuery.includes('best') || lowerQuery.includes('free') ||
+      lowerQuery.includes('discount') || lowerQuery.includes('price')
     ) {
       const [trending, featured, freeBooks] = await Promise.all([
         db.book.findMany({
           where: { trending: true },
           select: { title: true, author: true, price: true, discountPrice: true, rating: true, category: { select: { name: true } } },
-          take: 5,
-          orderBy: { totalSales: 'desc' },
+          take: 5, orderBy: { totalSales: 'desc' },
         }),
         db.book.findMany({
           where: { featured: true },
           select: { title: true, author: true, price: true, discountPrice: true, rating: true, category: { select: { name: true } } },
-          take: 5,
-          orderBy: { rating: 'desc' },
+          take: 5, orderBy: { rating: 'desc' },
         }),
         db.book.findMany({
           where: { price: 0 },
@@ -84,136 +67,109 @@ async function getBookContext(query: string): Promise<string> {
           take: 5,
         }),
       ]);
-
       if (trending.length > 0) {
-        contextParts.push(
-          'Trending books: ' +
-            trending
-              .map((b) => `${b.title} by ${b.author} ($${b.discountPrice ?? b.price}, ${b.category.name}, ${b.rating} stars)`)
-              .join('; ')
-        );
+        contextParts.push('Trending books: ' + trending.map((b) => `${b.title} by ${b.author} ($${b.discountPrice ?? b.price}, ${b.category.name}, ${b.rating} stars)`).join('; '));
       }
       if (featured.length > 0) {
-        contextParts.push(
-          'Featured books: ' +
-            featured
-              .map((b) => `${b.title} by ${b.author} ($${b.discountPrice ?? b.price}, ${b.category.name}, ${b.rating} stars)`)
-              .join('; ')
-        );
+        contextParts.push('Featured books: ' + featured.map((b) => `${b.title} by ${b.author} ($${b.discountPrice ?? b.price}, ${b.category.name}, ${b.rating} stars)`).join('; '));
       }
       if (freeBooks.length > 0) {
-        contextParts.push(
-          'Free books: ' +
-            freeBooks.map((b) => `${b.title} by ${b.author} (${b.category.name}, ${b.rating} stars)`).join('; ')
-        );
+        contextParts.push('Free books: ' + freeBooks.map((b) => `${b.title} by ${b.author} (${b.category.name}, ${b.rating} stars)`).join('; '));
       }
     }
   } catch (error) {
     console.error('Error fetching book context:', error);
   }
-
-  return contextParts.length > 0
-    ? `\n\nCurrent store data:\n${contextParts.join('\n')}`
-    : '';
+  return contextParts.length > 0 ? `\n\nCurrent store data:\n${contextParts.join('\n')}` : '';
 }
 
-async function callAI(messages: { role: string; content: string }[]): Promise<string> {
-  // Method 1: Try BigModel API with user's API key
-  const bigModelKey = process.env.BIGMODEL_API_KEY;
-  if (bigModelKey) {
-    try {
-      const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${bigModelKey}`,
-        },
-        body: JSON.stringify({
-          model: 'glm-4-plus',
-          messages,
-          temperature: 0.7,
-          max_tokens: 500,
-        }),
-      });
+async function callBigModel(messages: { role: string; content: string }[], model: string): Promise<{ ok: boolean; reply?: string; status?: number }> {
+  const apiKey = process.env.BIGMODEL_API_KEY;
+  if (!apiKey) return { ok: false };
 
-      if (response.ok) {
-        const data = await response.json();
-        const reply = data.choices?.[0]?.message?.content;
-        if (reply) return reply;
-      }
-
-      const errText = await response.text().catch(() => '');
-      console.log('BigModel response:', response.status, errText.substring(0, 100));
-    } catch (e: any) {
-      console.log('BigModel fetch error:', e.message);
-    }
-  }
-
-  // Method 2: Try Z AI Internal API
-  const zaiToken = process.env.ZAI_TOKEN;
-  const zaiUserId = process.env.ZAI_USER_ID;
-  if (zaiToken) {
-    try {
-      const headers: Record<string, string> = {
+  try {
+    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+      method: 'POST',
+      headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer Z.ai',
-        'X-Z-AI-From': 'Z',
-        'X-Token': zaiToken,
-      };
-      if (zaiUserId) {
-        headers['X-User-Id'] = zaiUserId;
-      }
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 500 }),
+    });
 
-      const response = await fetch('https://internal-api.z.ai/v1/chat/completions', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          messages,
-          temperature: 0.7,
-          max_tokens: 500,
-          thinking: { type: 'disabled' },
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const reply = data.choices?.[0]?.message?.content;
-        if (reply) return reply;
-      }
-
-      const errText = await response.text().catch(() => '');
-      console.log('ZAI response:', response.status, errText.substring(0, 100));
-    } catch (e: any) {
-      console.log('ZAI fetch error:', e.message);
+    if (response.ok) {
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content;
+      if (reply) return { ok: true, reply };
     }
+    return { ok: false, status: response.status };
+  } catch {
+    return { ok: false };
   }
+}
 
-  throw new Error('All AI providers failed');
+async function callZAI(messages: { role: string; content: string }[]): Promise<{ ok: boolean; reply?: string }> {
+  const zaiToken = process.env.ZAI_TOKEN;
+  if (!zaiToken) return { ok: false };
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer Z.ai',
+      'X-Z-AI-From': 'Z',
+      'X-Token': zaiToken,
+    };
+    const zaiUserId = process.env.ZAI_USER_ID;
+    if (zaiUserId) headers['X-User-Id'] = zaiUserId;
+
+    const response = await fetch('https://internal-api.z.ai/v1/chat/completions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ messages, temperature: 0.7, max_tokens: 500, thinking: { type: 'disabled' } }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content;
+      if (reply) return { ok: true, reply };
+    }
+    return { ok: false };
+  } catch {
+    return { ok: false };
+  }
 }
 
 export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json();
-
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: 'Messages are required' }, { status: 400 });
     }
 
-    // Get the last user message for context
     const lastUserMessage = messages.filter((m: { role: string }) => m.role === 'user').pop();
     const bookContext = lastUserMessage ? await getBookContext(lastUserMessage.content) : '';
-
-    const reply = await callAI([
+    const allMessages = [
       { role: 'system', content: SYSTEM_PROMPT + bookContext },
       ...messages,
-    ]);
+    ];
 
-    return NextResponse.json({ reply });
+    // Try providers in order: glm-z1-flash (free) -> glm-4-plus (paid) -> Z AI internal
+    const providers = [
+      () => callBigModel(allMessages, 'glm-z1-flash'),
+      () => callBigModel(allMessages, 'glm-4-plus'),
+      () => callZAI(allMessages),
+    ];
+
+    for (const provider of providers) {
+      const result = await provider();
+      if (result.ok && result.reply) {
+        return NextResponse.json({ reply: result.reply });
+      }
+    }
+
+    return NextResponse.json({ reply: 'Sorry, all AI services are currently busy. Please try again in a moment.' });
   } catch (error: any) {
     console.error('Chat API error:', error.message || error);
-    return NextResponse.json(
-      { reply: 'Sorry, I encountered an error. Please try again later.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ reply: 'Sorry, I encountered an error. Please try again later.' });
   }
 }
